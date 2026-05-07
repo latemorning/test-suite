@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+blocked_path_regex='(^|/)(\.env($|\.)|\.npmrc$|\.netrc$|\.pypirc$|\.aws/|\.azure/|\.gcloud/|\.kube/|playwright/\.auth/|storageState[^/]*\.json$|[^/]*\.(har|pem|key|p12|pfx|jks|keystore)$)'
+secret_regex='(BEGIN (RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,}|sk-(live|test|proj)-[A-Za-z0-9_-]{16,}|(secret|password|passwd|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|authorization)[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9_./+=:-]{20,})'
+
+fail=0
+
+while IFS= read -r -d '' path; do
+  case "$path" in
+    .env.example|*.env.example|*.env.*.example|.npmrc.example)
+      continue
+      ;;
+  esac
+
+  if [[ "$path" =~ $blocked_path_regex ]]; then
+    printf 'Blocked sensitive path from commit: %s\n' "$path" >&2
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+while IFS= read -r -d '' path; do
+  if git show ":$path" 2>/dev/null | LC_ALL=C grep -Eiq "$secret_regex"; then
+    printf 'Potential secret-like content detected in staged file: %s\n' "$path" >&2
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [[ "$fail" -ne 0 ]]; then
+  cat >&2 <<'MESSAGE'
+
+Commit blocked by .githooks/pre-commit.
+Move real secrets to local-only files, keep example files placeholder-only, or adjust the hook if this is a false positive.
+MESSAGE
+  exit 1
+fi

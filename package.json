@@ -1,0 +1,26 @@
+{
+  "name": "pg-local-e2e-test-suite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Playwright E2E tests for the PG payment test page.",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:payment": "playwright test --grep @payment",
+    "test:api-terms": "playwright test --grep @api-terms",
+    "test:api-point": "playwright test --grep @api-point",
+    "test:headed": "PLAYWRIGHT_HEADED_SLOW_MO=1 HEADED_SLOW_MO_MS=${HEADED_SLOW_MO_MS:-250} playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "install:browsers": "playwright install chromium",
+    "service:ps": "docker compose --project-directory /Users/harry/docker/middleware-stack ps",
+    "service:up": "docker compose --project-directory /Users/harry/docker/middleware-stack up -d pointhub",
+    "service:logs": "docker compose --project-directory /Users/harry/docker/middleware-stack logs -f pointhub"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0"
+  }
+}
