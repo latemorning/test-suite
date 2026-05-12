@@ -40,6 +40,41 @@ export class PgPage {
   }
 
   /**
+   * 시나리오가 지정한 PG사 탭을 선택하고 화면의 PG 코드가 갱신됐는지 확인한다.
+   */
+  async selectPgProvider(provider: { name: string; code: string }): Promise<void> {
+    const tab = this.page
+      .locator('ul.tabs li')
+      .filter({ hasText: exactTextPattern(provider.name) })
+      .first();
+
+    await expect(tab).toBeVisible();
+    await tab.click();
+    await expect(tab).toHaveClass(/current/);
+    await expect(this.page.locator('#pg_cd')).toHaveValue(provider.code);
+  }
+
+  /**
+   * PG사 탭의 기본 가맹점이 결제 UI로 이어지지 않을 때 시나리오의 가맹점을 선택한다.
+   */
+  async selectShop(shopName: string): Promise<void> {
+    const shopSelect = this.page.locator('#shop_sel');
+    const option = shopSelect.locator('option').filter({ hasText: exactTextPattern(shopName) }).first();
+
+    await expect(shopSelect).toBeVisible();
+    await expect(option).toBeAttached();
+
+    const value = await option.getAttribute('value');
+    if (!value) {
+      throw new Error(`Could not find a selectable shop option for ${shopName}.`);
+    }
+
+    await shopSelect.selectOption(value);
+    await expect(shopSelect).toHaveValue(value);
+    await expect(this.page.locator('#shopName')).toHaveValue(shopName);
+  }
+
+  /**
    * PC전용 Submit을 실행하고, 새 창이 열리면 이후 조작 대상을 그 창으로 전환한다.
    */
   async submitTest(): Promise<Page> {
@@ -60,7 +95,7 @@ export class PgPage {
   async lookupTerms(target: Page): Promise<Page> {
     return this.clickAndMaybeGetPopup(
       target,
-      /전체\s*약관\s*동의\s*후\s*포인트\s*조회하기|포인트\s*조회하기|약관\s*조회\s*하기|약관조회하기/,
+      /전체\s*약관\s*동의\s*후\s*(?:포인트\s*조회하기|본인\s*인증하기)|포인트\s*조회하기|약관\s*조회\s*하기|약관조회하기/,
     );
   }
 
@@ -69,6 +104,11 @@ export class PgPage {
    */
   async sendVirtualAuth(target: Page): Promise<Page> {
     const opener = await target.opener();
+    const kmcNameInput = target.locator('#krName').first();
+    if (await this.isUsable(kmcNameInput, true)) {
+      // KMC 테스트 인증 화면은 이름 입력값이 비어 있으면 결과 페이지로 이어지지 않는다.
+      await kmcNameInput.fill('고영희');
+    }
 
     await this.withAutoAcceptDialogs(target, async () => {
       await this.clickButton(target, /전송/);
@@ -100,7 +140,13 @@ export class PgPage {
    * 일부 로컬 화면에서만 표시되는 최종 확인 버튼을 있으면 클릭한다.
    */
   async confirmIfPresent(target: Page): Promise<void> {
-    await this.clickOptionalButton(target, /확인/, 3000);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const clicked = await this.clickOptionalConfirm(target, 1500);
+      if (!clicked) return;
+
+      // PG별로 확인 버튼 뒤에 한 번 더 전환/결제 확인 레이어가 뜰 수 있다.
+      await target.waitForTimeout(500).catch(() => undefined);
+    }
   }
 
   private async clickAndMaybeGetPopup(target: Page, buttonName: RegExp): Promise<Page> {
@@ -130,6 +176,21 @@ export class PgPage {
 
     await locator.click();
     return true;
+  }
+
+  private async clickOptionalConfirm(target: Page, timeoutMs: number): Promise<boolean> {
+    const popupConfirm = target
+      .locator('#myPopup:visible, .popup:visible, [role="dialog"]:visible')
+      .locator('button, a, input[type="button"], input[type="submit"]')
+      .filter({ hasText: /확인/ })
+      .last();
+
+    if (await this.isUsable(popupConfirm)) {
+      await popupConfirm.click({ timeout: timeoutMs });
+      return true;
+    }
+
+    return this.clickOptionalButton(target, /확인/, timeoutMs);
   }
 
   private async withAutoAcceptDialogs(target: Page, action: () => Promise<void>): Promise<void> {
@@ -288,4 +349,12 @@ function xpathTextMatch(attribute: string, pattern: RegExp): string {
 
 function escapeXpathLiteral(value: string): string {
   return value.replace(/'/g, "&apos;");
+}
+
+function exactTextPattern(value: string): RegExp {
+  return new RegExp(`^\\s*${escapeRegExp(value)}\\s*$`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

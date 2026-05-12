@@ -14,6 +14,17 @@ test.describe('PG local payment flow', { tag: ['@payment', '@e2e'] }, () => {
         await pg.goto();
       });
 
+      await test.step(`PG사 선택: ${scenario.pgProvider.name}`, async () => {
+        await pg.selectPgProvider(scenario.pgProvider);
+      });
+
+      const { shopName } = scenario;
+      if (shopName) {
+        await test.step(`가맹점 선택: ${shopName}`, async () => {
+          await pg.selectShop(shopName);
+        });
+      }
+
       await test.step('암호화 버튼 클릭', async () => {
         await pg.encrypt();
       });

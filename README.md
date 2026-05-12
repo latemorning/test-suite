@@ -55,6 +55,7 @@ HEADED_SLOW_MO_MS=0 npm run test:headed
 
 ```env
 PG_FRONT_URL=http://localhost/pg/pgfront.do
+PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터,패밀리
 CARD_POINT_AMOUNT=5000
 SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
 LOCAL_STACK_DIR=/Users/harry/docker/middleware-stack
@@ -69,5 +70,7 @@ HEADED_SLOW_MO_MS=250
 ## 시나리오 추가
 
 새 결제 케이스는 [tests/pg/scenarios.ts](tests/pg/scenarios.ts)에 항목을 추가합니다.
+
+결제 플로우는 기본적으로 `PAYMENT_PG_PROVIDERS`에 지정된 PG사 탭을 순서대로 선택합니다.
 
 결제 플로우와 다른 화면 영역의 테스트는 별도 spec으로 분리합니다. 현재 테스트 유형은 `smoke`, `payment`, `api-terms`, `api-point`로 나뉘며, `PG 연동 API 테스트`의 약관 조회/동의 흐름은 [tests/pg/api-terms.spec.ts](tests/pg/api-terms.spec.ts)에 있고 약관 성공 후 포인트 API 조회/결제 흐름은 [tests/pg/api-point-payment.spec.ts](tests/pg/api-point-payment.spec.ts)에 있습니다.

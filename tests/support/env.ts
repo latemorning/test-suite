@@ -14,6 +14,12 @@ loadDotEnv();
  */
 export const env = {
   pgFrontUrl: getEnv('PG_FRONT_URL', defaultPgFrontUrl),
+  paymentPgProviderNames: getListEnv('PAYMENT_PG_PROVIDERS', [
+    '세틀뱅크',
+    '메크로스',
+    '페이레터',
+    '패밀리',
+  ]),
   cardPointAmount: getNumberEnv('CARD_POINT_AMOUNT', 5000),
   successTextPattern: getEnv('SUCCESS_TEXT_PATTERN', defaultSuccessTextPattern),
   localStackDir: getEnv('LOCAL_STACK_DIR', defaultLocalStackDir),
@@ -61,6 +67,18 @@ function stripQuotes(value: string): string {
 function getEnv(name: string, fallback: string): string {
   const value = process.env[name];
   return value && value.trim() ? value.trim() : fallback;
+}
+
+function getListEnv(name: string, fallback: string[]): string[] {
+  const value = process.env[name];
+  if (!value || !value.trim()) return fallback;
+
+  const parsed = value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return parsed.length ? parsed : fallback;
 }
 
 function getNumberEnv(name: string, fallback: number): number {

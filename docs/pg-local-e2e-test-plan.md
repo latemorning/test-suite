@@ -27,6 +27,7 @@ v1에서는 GitHub Actions, Slack 알림, 운영 환경 테스트, 외부 side e
 
 ```env
 PG_FRONT_URL=http://localhost/pg/pgfront.do
+PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터,패밀리
 CARD_POINT_AMOUNT=5000
 SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
 API_POINT_TTL_PNT=1000
@@ -45,14 +46,18 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 
 1. `http://localhost/pg/pgfront.do` 접속
 2. 페이지가 정상 로드되었는지 확인
-3. `암호화` 버튼 클릭
-4. `PC전용 Submit` 버튼 클릭
-5. `/pg/identification.do` 화면에서 `전체 약관 동의 후 포인트조회하기(선택포함)` 클릭
-6. 가상 인증 팝업에서 `전송` 버튼 클릭
-7. 카드사별 목록의 `사용포인트` 입력란에 `5000` 입력
-8. `결제` 또는 `전환하기` 버튼 클릭
-9. 최종 `확인` 버튼 클릭
-10. alert 창의 `포인트허브 결제 성공` 문구 확인
+3. 결제 시나리오의 PG사 탭 선택
+   - 기본 대상: `세틀뱅크`, `메크로스`, `페이레터`, `패밀리`
+4. 시나리오가 지정한 가맹점이 있으면 해당 가맹점 선택
+   - 현재 `페이레터`는 기본 가맹점 대신 `페이레터_UI_CU` 사용
+5. `암호화` 버튼 클릭
+6. `PC전용 Submit` 버튼 클릭
+7. 약관 화면에서 `전체 약관 동의 후 포인트조회하기(선택포함)` 또는 같은 의미의 본인인증 진입 버튼 클릭
+8. 가상 인증 팝업에서 필요 시 테스트 이름을 입력한 뒤 `전송` 버튼 클릭
+9. 카드사별 목록의 `사용포인트` 입력란에 `5000` 입력
+10. `결제` 또는 `전환하기` 버튼 클릭
+11. 최종 `확인` 버튼 클릭
+12. alert 창의 `포인트허브 결제 성공` 문구 확인
 
 ## PG API Terms Flow
 
@@ -103,6 +108,8 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 구현 시 셀렉터는 사용자에게 보이는 의미를 우선한다.
 
 - 버튼은 `getByRole('button', { name: /암호화|PC전용 Submit|포인트조회하기|전송|결제|전환하기|확인/ })` 형태를 우선 사용한다.
+- PG사 선택은 `ul.tabs li`의 노출 텍스트를 우선 사용하고, 선택 후 `#pg_cd` 값으로 PG 코드가 갱신됐는지 확인한다.
+- 가맹점 선택이 필요한 시나리오는 `#shop_sel` 옵션 텍스트로 선택하고 `#shopName` 값으로 반영 여부를 확인한다.
 - `포인트조회하기`처럼 button role이 아닌 clickable 텍스트는 visible text 클릭 fallback을 사용한다.
 - 입력 필드는 label, name, id, 주변 텍스트 기반 탐색 순서로 찾는다.
 - 카드포인트 입력란은 명시 라벨이 없으므로 카드사별 목록의 `사용포인트` 헤더 아래 `input.pnt` 입력 필드를 우선 찾는다.
@@ -147,7 +154,7 @@ export const paymentScenarios = [
   {
     name: '기본 카드포인트 5000 결제',
     pointAmount: 5000,
-    useDefaultPg: true,
+    pgProvider: { name: '세틀뱅크', code: 'PG0001' },
     expectedSuccessPattern: /포인트허브 결제 성공/,
   },
 ];
@@ -157,9 +164,9 @@ export const paymentScenarios = [
 
 ```ts
 {
-  name: '카드포인트 10000 결제',
+  name: '메크로스 카드포인트 10000 결제',
+  pgProvider: { name: '메크로스', code: 'PG0004' },
   pointAmount: 10000,
-  useDefaultPg: true,
   expectedSuccessPattern: /포인트허브 결제 성공/,
 }
 ```
@@ -172,6 +179,8 @@ for (const scenario of paymentScenarios) {
     const pg = new PgPage(page);
 
     await pg.goto();
+    await pg.selectPgProvider(scenario.pgProvider);
+    if (scenario.shopName) await pg.selectShop(scenario.shopName);
     await pg.encrypt();
     await pg.submitTest();
     await pg.lookupTerms();
@@ -199,7 +208,7 @@ for (const scenario of paymentScenarios) {
 
 ### Payment Success E2E
 
-- 기본 화면 상태에서 `암호화`를 실행한다.
+- 결제 시나리오의 PG사 탭과 필요 시 가맹점을 선택한 뒤 `암호화`를 실행한다.
 - `PC전용 Submit`으로 결제 또는 약관 흐름을 시작한다.
 - `/pg/identification.do` 화면에서 전체 약관 동의 후 포인트 조회를 실행한다.
 - 가상 인증 팝업에서 `전송`만 클릭해 인증 완료 상태로 진행한다.
@@ -235,16 +244,19 @@ for (const scenario of paymentScenarios) {
 - 구현 시 `~/docker/middleware-stack`에서 서비스 기동 방법을 파악할 수 있으면 로컬 서비스 기동용 보조 스크립트를 추가할 수 있다.
 - 테스트 URL은 기본적으로 `http://localhost/pg/pgfront.do`다.
 - `PC전용 Submit` 이후 화면은 새 팝업으로 열린다.
-- 전화번호 인증은 가상 인증 팝업의 `전송` 버튼 클릭만으로 통과된다.
+- 전화번호 인증은 기본적으로 가상 인증 팝업의 `전송` 버튼 클릭만으로 통과된다.
+- KMC 테스트 인증 화면처럼 이름 입력이 필요한 경우 테스트용 이름을 입력한 뒤 전송한다.
 - 실제 외부 결제, 문자, 메일, 재고, 정산 같은 side effect는 없다.
-- 화면 기본 PG 설정과 기본 결제수단은 변경하지 않는다.
+- 화면 결제 플로우는 기본적으로 `세틀뱅크`, `메크로스`, `페이레터`, `패밀리` PG사 탭을 각각 선택해 실행한다.
+- `페이레터` 화면 결제는 기본 가맹점이 오류 화면으로 진입하므로 `페이레터_UI_CU` 가맹점을 사용한다.
+- 결제수단은 화면 기본값을 변경하지 않는다.
 - 카드포인트 입력값은 기본 `5000`이다.
 - API 포인트 결제 입력값은 기본 `ttl_pnt=1000`, `ttl_pay_amt=5000`, `ttl_pnt_amt=1000`, `shop_cmsn_rate=10`, 카드사 `KB (KB국민카드)`다.
 - 성공 판정은 alert 창의 `포인트허브 결제 성공` 문구를 기준으로 한다.
 - API 약관 동의 성공 판정은 alert 창의 `약관 동의가 완료되었습니다.` 문구를 기준으로 한다.
 - API 포인트 조회/결제 성공 판정은 `#api_result` 결과 영역의 `포인트 조회 성공`, `포인트 결제 성공` 문구를 기준으로 한다.
 - 실패해도 테스트 데이터 정리는 필요 없다.
-- 결제 플로우의 첫 구현은 `기본 카드포인트 5000 결제` 시나리오 1개를 유지하고, 결제 시나리오는 이후 `scenarios.ts`에 추가한다.
+- 결제 플로우는 PG사별 기본 카드포인트 결제 시나리오를 유지하고, 금액이나 PG사 추가는 이후 `scenarios.ts` 또는 `PAYMENT_PG_PROVIDERS`에 반영한다.
 - PG 연동 API 테스트처럼 완전히 다른 영역은 별도 spec 파일로 추가한다.
 
 ## Explicitly Excluded From V1

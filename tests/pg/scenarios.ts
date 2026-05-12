@@ -11,22 +11,50 @@ import type {
  */
 export type PaymentScenario = {
   name: string;
+  pgProvider: PaymentPgProvider;
+  shopName?: string;
   pointAmount: number;
-  useDefaultPg: boolean;
   expectedSuccessPattern: RegExp;
 };
 
 /**
- * v1 결제 플로우의 기본 카드포인트 결제 시나리오다.
+ * 화면 결제 E2E에서 선택할 PG사 탭, 검증용 PG 코드, 필요 시 가맹점 기본값이다.
  */
-export const paymentScenarios: PaymentScenario[] = [
-  {
-    name: '기본 카드포인트 5000 결제',
+export type PaymentPgProvider = {
+  name: string;
+  code: string;
+  shopName?: string;
+};
+
+const paymentPgProvidersByName: Record<string, PaymentPgProvider> = {
+  세틀뱅크: { name: '세틀뱅크', code: 'PG0001' },
+  메크로스: { name: '메크로스', code: 'PG0004' },
+  페이레터: { name: '페이레터', code: 'PG0006', shopName: '페이레터_UI_CU' },
+  패밀리: { name: '패밀리', code: 'PG_FAM' },
+};
+
+/**
+ * v1 결제 플로우에서 지원하는 PG사별 카드포인트 결제 시나리오다.
+ */
+export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.map((providerName) => {
+  const pgProvider = paymentPgProvidersByName[providerName];
+  if (!pgProvider) {
+    throw new Error(
+      [
+        `Unsupported PAYMENT_PG_PROVIDERS entry: ${providerName}`,
+        `Supported providers: ${Object.keys(paymentPgProvidersByName).join(', ')}`,
+      ].join('\n'),
+    );
+  }
+
+  return {
+    name: `${pgProvider.name} 카드포인트 ${env.cardPointAmount} 결제`,
+    pgProvider,
+    shopName: pgProvider.shopName,
     pointAmount: env.cardPointAmount,
-    useDefaultPg: true,
     expectedSuccessPattern: new RegExp(env.successTextPattern),
-  },
-];
+  };
+});
 
 /**
  * PG 연동 API 테스트 영역의 약관 조회/동의 흐름 데이터다.
