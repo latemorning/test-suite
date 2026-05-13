@@ -18,6 +18,18 @@ export type PaymentScenario = {
 };
 
 /**
+ * 패밀리포인트 할인권 요청 플로우에서 시나리오별로 바뀌는 입력값과 성공 기준이다.
+ */
+export type FamilyPaymentScenario = {
+  name: string;
+  pgProvider: PaymentPgProvider;
+  shopName: string;
+  paymentAmount: number;
+  usePointAmount: number;
+  expectedSuccessPattern: RegExp;
+};
+
+/**
  * 화면 결제 E2E에서 선택할 PG사 탭, 검증용 PG 코드, 필요 시 가맹점 기본값이다.
  */
 export type PaymentPgProvider = {
@@ -30,8 +42,9 @@ const paymentPgProvidersByName: Record<string, PaymentPgProvider> = {
   세틀뱅크: { name: '세틀뱅크', code: 'PG0001' },
   메크로스: { name: '메크로스', code: 'PG0004' },
   페이레터: { name: '페이레터', code: 'PG0006', shopName: '페이레터_UI_CU' },
-  패밀리: { name: '패밀리', code: 'PG_FAM' },
 };
+
+const familyPaymentPgProvider: PaymentPgProvider = { name: '패밀리', code: 'PG_FAM' };
 
 /**
  * v1 결제 플로우에서 지원하는 PG사별 카드포인트 결제 시나리오다.
@@ -55,6 +68,18 @@ export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.ma
     expectedSuccessPattern: new RegExp(env.successTextPattern),
   };
 });
+
+/**
+ * 일반 카드포인트 결제와 성공 화면이 다른 패밀리포인트 할인권 요청 시나리오다.
+ */
+export const familyPaymentScenario: FamilyPaymentScenario = {
+  name: `패밀리 할인권 ${env.familyPaymentAmount} 결제`,
+  pgProvider: familyPaymentPgProvider,
+  shopName: env.familyPaymentShopName,
+  paymentAmount: env.familyPaymentAmount,
+  usePointAmount: env.familyPaymentUsePointAmount,
+  expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
+};
 
 /**
  * PG 연동 API 테스트 영역의 약관 조회/동의 흐름 데이터다.

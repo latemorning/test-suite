@@ -32,6 +32,7 @@ npm test
 ```bash
 npm run test:smoke
 npm run test:payment
+npm run test:family-payment
 npm run test:api-terms
 npm run test:api-point
 ```
@@ -55,9 +56,13 @@ HEADED_SLOW_MO_MS=0 npm run test:headed
 
 ```env
 PG_FRONT_URL=http://localhost/pg/pgfront.do
-PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터,패밀리
+PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터
 CARD_POINT_AMOUNT=5000
 SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
+FAMILY_PAYMENT_AMOUNT=5000
+FAMILY_PAYMENT_USE_POINT_AMOUNT=5000
+FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
+FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN=가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다
 LOCAL_STACK_DIR=/Users/harry/docker/middleware-stack
 API_POINT_TTL_PNT=1000
 API_POINT_TTL_PAY_AMT=5000
@@ -73,4 +78,6 @@ HEADED_SLOW_MO_MS=250
 
 결제 플로우는 기본적으로 `PAYMENT_PG_PROVIDERS`에 지정된 PG사 탭을 순서대로 선택합니다.
 
-결제 플로우와 다른 화면 영역의 테스트는 별도 spec으로 분리합니다. 현재 테스트 유형은 `smoke`, `payment`, `api-terms`, `api-point`로 나뉘며, `PG 연동 API 테스트`의 약관 조회/동의 흐름은 [tests/pg/api-terms.spec.ts](tests/pg/api-terms.spec.ts)에 있고 약관 성공 후 포인트 API 조회/결제 흐름은 [tests/pg/api-point-payment.spec.ts](tests/pg/api-point-payment.spec.ts)에 있습니다.
+패밀리포인트 할인권 요청은 `PC전용 Submit` 이후 팝업 흐름이 일반 결제와 달라 [tests/pg/family-payment.spec.ts](tests/pg/family-payment.spec.ts)와 [tests/pg/family-payment-page.ts](tests/pg/family-payment-page.ts)에서 별도로 실행합니다.
+
+결제 플로우와 다른 화면 영역의 테스트는 별도 spec으로 분리합니다. 현재 테스트 유형은 `smoke`, `payment`, `family-payment`, `api-terms`, `api-point`로 나뉘며, `PG 연동 API 테스트`의 약관 조회/동의 흐름은 [tests/pg/api-terms.spec.ts](tests/pg/api-terms.spec.ts)에 있고 약관 성공 후 포인트 API 조회/결제 흐름은 [tests/pg/api-point-payment.spec.ts](tests/pg/api-point-payment.spec.ts)에 있습니다.

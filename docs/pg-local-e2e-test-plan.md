@@ -27,9 +27,13 @@ v1에서는 GitHub Actions, Slack 알림, 운영 환경 테스트, 외부 side e
 
 ```env
 PG_FRONT_URL=http://localhost/pg/pgfront.do
-PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터,패밀리
+PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터
 CARD_POINT_AMOUNT=5000
 SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
+FAMILY_PAYMENT_AMOUNT=5000
+FAMILY_PAYMENT_USE_POINT_AMOUNT=5000
+FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
+FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN=가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다
 API_POINT_TTL_PNT=1000
 API_POINT_TTL_PAY_AMT=5000
 API_POINT_TTL_PNT_AMT=1000
@@ -47,7 +51,7 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 1. `http://localhost/pg/pgfront.do` 접속
 2. 페이지가 정상 로드되었는지 확인
 3. 결제 시나리오의 PG사 탭 선택
-   - 기본 대상: `세틀뱅크`, `메크로스`, `페이레터`, `패밀리`
+   - 기본 대상: `세틀뱅크`, `메크로스`, `페이레터`
 4. 시나리오가 지정한 가맹점이 있으면 해당 가맹점 선택
    - 현재 `페이레터`는 기본 가맹점 대신 `페이레터_UI_CU` 사용
 5. `암호화` 버튼 클릭
@@ -58,6 +62,23 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 10. `결제` 또는 `전환하기` 버튼 클릭
 11. 최종 `확인` 버튼 클릭
 12. alert 창의 `포인트허브 결제 성공` 문구 확인
+
+패밀리포인트 할인권 요청은 `PC전용 Submit` 이후 팝업 흐름과 성공 조건이 다르므로 별도 시나리오로 진행한다.
+
+1. `http://localhost/pg/pgfront.do` 접속
+2. `패밀리` PG사 탭 선택
+3. `세틀_패밀리박스` 가맹점 선택
+4. 필요 시 `pay_amt`를 `FAMILY_PAYMENT_AMOUNT` 값으로 설정
+5. `암호화` 버튼 클릭
+6. `PC전용 Submit` 버튼 클릭
+7. 패밀리 약관 화면에서 `전체 약관 동의 후 본인인증하기` 클릭
+8. 가상 인증 팝업에서 필요 시 테스트 이름을 입력한 뒤 `전송` 버튼 클릭
+9. 패밀리포인트 사용 화면에서 각 카드사 행의 `초기화` 버튼을 클릭해 사용포인트를 0으로 설정
+10. 카드사 행을 화면 순서대로 검색해 사용가능 포인트가 `FAMILY_PAYMENT_USE_POINT_AMOUNT` 이상인 첫 행의 사용포인트만 `FAMILY_PAYMENT_USE_POINT_AMOUNT`로 입력
+11. `확인` 버튼 클릭
+12. 결과 문자열에서 `ret_code=00` 확인 후 결과 화면의 `확인` 버튼 클릭
+13. 가족 목록 화면에서 `일괄요청` 클릭
+14. 레이어 팝업의 `가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다.` 문구 확인 후 `확인` 버튼 클릭
 
 ## PG API Terms Flow
 
@@ -116,6 +137,8 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 - 팝업은 `page.waitForEvent('popup')` 또는 브라우저 컨텍스트의 새 페이지 이벤트를 기다린 뒤 해당 페이지에서 조작한다.
 - 텍스트가 불안정하거나 중복될 경우에만 CSS selector나 XPath를 보조로 사용한다.
 - `약관조회하기`, `전송`, `결제`, `확인` 버튼명은 화면 내 중복되지 않는다는 전제로 role 기반 selector를 우선한다.
+- 패밀리포인트 사용 화면은 `.pointGroup` 단위로 카드사 행을 순회하고, `.initBtn`, `.avlPnt`, `input.pnt`, `#confirmBtn`을 우선 사용한다.
+- 패밀리 결과/요청 화면은 `#btn_confirm`, `#btnReqAll`, `#myPopup`과 최종 요청 메시지 텍스트를 우선 사용한다.
 - API 테스트 영역은 명시적인 `id`가 제공되므로 `#api-test`, `#api_pg_cd`, `#api_shop_sel`, `#api_authorization`, `#api_pg_cust_ci` 같은 안정적인 DOM id를 우선 사용한다.
 - 포인트 API 영역은 `data-api-tab="point"`, `.api-section-point`, `#api_ttl_pnt`, `#api_ttl_pay_amt`, `#api_ttl_pnt_amt`, `#api_card_point_list`, `#api_point_pay_btn`, `#api_result` 같은 안정적인 DOM id와 class를 우선 사용한다.
 
@@ -131,20 +154,28 @@ tests/
     payment.spec.ts
     api-terms.spec.ts
     api-point-payment.spec.ts
+    family-payment.spec.ts
     scenarios.ts
     pg-page.ts
+    card-point-payment-page.ts
+    family-payment-page.ts
     api-terms-page.ts
     api-point-page.ts
+    page-actions.ts
     assertions.ts
 ```
 
 - `payment.spec.ts`: 시나리오 목록을 순회하며 실제 테스트를 실행한다.
+- `family-payment.spec.ts`: 패밀리포인트 할인권 요청 전용 흐름을 실행한다.
 - `api-terms.spec.ts`: PG 연동 API 테스트 영역의 약관 조회/동의 흐름을 실행한다.
 - `api-point-payment.spec.ts`: 약관 API 성공 후 포인트 API 조회/결제 흐름을 실행한다.
 - `scenarios.ts`: 금액, PG 설정, 결제수단, 기대 성공 패턴 같은 시나리오 데이터를 정의한다.
-- `pg-page.ts`: 페이지 접속, 암호화, 테스트서브밋, 약관조회, 팝업 전송, 포인트 입력, 결제, 확인 같은 화면 조작 함수를 제공한다.
+- `pg-page.ts`: 페이지 접속, PG/가맹점 선택, 암호화, `PC전용 Submit`까지의 공통 시작 흐름을 제공한다.
+- `card-point-payment-page.ts`: `PC전용 Submit` 이후 일반 카드포인트 결제 팝업 흐름을 제공한다.
+- `family-payment-page.ts`: `PC전용 Submit` 이후 패밀리포인트 사용, 결과 확인, 일괄요청 흐름을 제공한다.
 - `api-terms-page.ts`: API 테스트 영역 진입, 공통 파라미터 입력, 약관 조회, 약관 동의 조작 함수를 제공한다.
 - `api-point-page.ts`: 포인트 API 탭 진입, 포인트 금액/카드 포인트 입력, 포인트 조회, 포인트 결제 조작 함수를 제공한다.
+- `page-actions.ts`: 버튼 탐색, 팝업 전환, 인증 팝업 처리 같은 저수준 화면 조작 유틸을 제공한다.
 - `assertions.ts`: 성공 문구, alert, 팝업, 네트워크 응답 등 성공/실패 판정 로직을 제공한다.
 
 시나리오는 데이터로 추가한다.
@@ -158,6 +189,19 @@ export const paymentScenarios = [
     expectedSuccessPattern: /포인트허브 결제 성공/,
   },
 ];
+```
+
+패밀리포인트 할인권 요청은 일반 결제 시나리오와 분리한다.
+
+```ts
+export const familyPaymentScenario = {
+  name: '패밀리 할인권 5000 결제',
+  pgProvider: { name: '패밀리', code: 'PG_FAM' },
+  shopName: '세틀_패밀리박스',
+  paymentAmount: 5000,
+  usePointAmount: 5000,
+  expectedSuccessPattern: /할인권 요청 메시지가 발송 되었습니다/,
+};
 ```
 
 나중에 금액이나 설정만 다른 시나리오는 `scenarios.ts`에 항목을 하나 더 추가한다.
@@ -177,19 +221,21 @@ export const paymentScenarios = [
 for (const scenario of paymentScenarios) {
   test(scenario.name, async ({ page }) => {
     const pg = new PgPage(page);
+    let cardPayment = new CardPointPaymentPage(page);
 
     await pg.goto();
     await pg.selectPgProvider(scenario.pgProvider);
     if (scenario.shopName) await pg.selectShop(scenario.shopName);
     await pg.encrypt();
-    await pg.submitTest();
-    await pg.lookupTerms();
-    await pg.sendVirtualAuth();
-    await pg.enterCardPoint(scenario.pointAmount);
-    await pg.pay();
-    await pg.confirm();
+    cardPayment = new CardPointPaymentPage(await pg.submitTest());
+    await cardPayment.lookupTerms();
+    await cardPayment.sendVirtualAuth();
+    await cardPayment.enterCardPoint(scenario.pointAmount);
 
-    await expectSuccess(page, scenario.expectedSuccessPattern);
+    await expectSuccessAlert(cardPayment.page, scenario.expectedSuccessPattern, async () => {
+      await cardPayment.pay();
+      await cardPayment.confirmIfPresent();
+    });
   });
 }
 ```
@@ -215,6 +261,17 @@ for (const scenario of paymentScenarios) {
 - 카드사별 목록의 `사용포인트` 입력란에 `5000`을 입력한다.
 - 결제 후 최종 확인을 클릭한다.
 - alert 창의 `포인트허브 결제 성공` 문구가 확인되면 통과로 본다.
+
+### Family Payment Success E2E
+
+- `패밀리` PG사 탭과 `세틀_패밀리박스` 가맹점을 선택한 뒤 `암호화`를 실행한다.
+- `PC전용 Submit`으로 패밀리 약관 흐름을 시작한다.
+- 약관 동의 후 본인인증 팝업을 통과한다.
+- 패밀리포인트 사용 화면에서 각 카드사 행의 `초기화` 버튼을 눌러 사용포인트를 0으로 만든다.
+- 화면 순서대로 카드사 행을 검사해 사용가능 포인트가 `5000` 이상인 첫 행의 사용포인트만 `5000`으로 입력한다.
+- `확인` 클릭 후 결과 문자열에서 `ret_code=00`을 확인하고 결과 화면의 `확인`을 클릭한다.
+- 가족 목록 화면에서 `일괄요청`을 클릭한다.
+- `가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다.` 레이어 문구가 확인되면 통과로 본다.
 
 ### API Terms Inquiry And Agreement
 
@@ -247,8 +304,11 @@ for (const scenario of paymentScenarios) {
 - 전화번호 인증은 기본적으로 가상 인증 팝업의 `전송` 버튼 클릭만으로 통과된다.
 - KMC 테스트 인증 화면처럼 이름 입력이 필요한 경우 테스트용 이름을 입력한 뒤 전송한다.
 - 실제 외부 결제, 문자, 메일, 재고, 정산 같은 side effect는 없다.
-- 화면 결제 플로우는 기본적으로 `세틀뱅크`, `메크로스`, `페이레터`, `패밀리` PG사 탭을 각각 선택해 실행한다.
+- 화면 결제 플로우는 기본적으로 `세틀뱅크`, `메크로스`, `페이레터` PG사 탭을 각각 선택해 실행한다.
 - `페이레터` 화면 결제는 기본 가맹점이 오류 화면으로 진입하므로 `페이레터_UI_CU` 가맹점을 사용한다.
+- `패밀리` PG사는 일반 카드포인트 결제 기본 목록에서 제외하고 `family-payment` 시나리오로 별도 실행한다.
+- 패밀리포인트 사용 화면에서는 사용가능 포인트가 정확히 `5000`인 카드사도 선택 대상에 포함한다.
+- 패밀리포인트 할인권 요청 성공 판정은 `ret_code=00` 결과와 최종 일괄요청 레이어 문구를 기준으로 한다.
 - 결제수단은 화면 기본값을 변경하지 않는다.
 - 카드포인트 입력값은 기본 `5000`이다.
 - API 포인트 결제 입력값은 기본 `ttl_pnt=1000`, `ttl_pay_amt=5000`, `ttl_pnt_amt=1000`, `shop_cmsn_rate=10`, 카드사 `KB (KB국민카드)`다.

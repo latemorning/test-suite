@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test:smoke": "playwright test --grep @smoke",
     "test:payment": "playwright test --grep @payment",
+    "test:family-payment": "playwright test --grep @family-payment",
     "test:api-terms": "playwright test --grep @api-terms",
     "test:api-point": "playwright test --grep @api-point",
     "test:headed": "PLAYWRIGHT_HEADED_SLOW_MO=1 HEADED_SLOW_MO_MS=${HEADED_SLOW_MO_MS:-250} playwright test --headed",

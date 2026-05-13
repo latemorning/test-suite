@@ -4,6 +4,8 @@ import path from 'node:path';
 const defaultPgFrontUrl = 'http://localhost/pg/pgfront.do';
 const defaultSuccessTextPattern = '포인트허브 결제 성공';
 const defaultLocalStackDir = '/Users/harry/docker/middleware-stack';
+const defaultFamilyPaymentSuccessTextPattern =
+  '가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다';
 
 loadDotEnv();
 
@@ -18,10 +20,16 @@ export const env = {
     '세틀뱅크',
     '메크로스',
     '페이레터',
-    '패밀리',
   ]),
   cardPointAmount: getNumberEnv('CARD_POINT_AMOUNT', 5000),
   successTextPattern: getEnv('SUCCESS_TEXT_PATTERN', defaultSuccessTextPattern),
+  familyPaymentAmount: getNumberEnv('FAMILY_PAYMENT_AMOUNT', 5000),
+  familyPaymentUsePointAmount: getNumberEnv('FAMILY_PAYMENT_USE_POINT_AMOUNT', 5000),
+  familyPaymentShopName: getEnv('FAMILY_PAYMENT_SHOP_NAME', '세틀_패밀리박스'),
+  familyPaymentSuccessTextPattern: getEnv(
+    'FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN',
+    defaultFamilyPaymentSuccessTextPattern,
+  ),
   localStackDir: getEnv('LOCAL_STACK_DIR', defaultLocalStackDir),
   apiPointTtlPnt: getNumberEnv('API_POINT_TTL_PNT', 1000),
   apiPointTtlPayAmt: getNumberEnv('API_POINT_TTL_PAY_AMT', 5000),
