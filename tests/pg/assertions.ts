@@ -1,4 +1,4 @@
-import type { Dialog, Page } from '@playwright/test';
+import { expect, type Dialog, type Page } from '@playwright/test';
 
 /**
  * 지정한 동작을 실행한 뒤 기대 문구와 일치하는 성공 alert가 발생했는지 확인한다.
@@ -54,6 +54,29 @@ export async function expectSuccessAlert(
   } finally {
     clearTimeout(timeout);
     page.off('dialog', handler);
+  }
+}
+
+/**
+ * alert 없이 완료 화면의 문구로 성공 여부를 확인한다.
+ */
+export async function expectPageText(
+  page: Page,
+  expectedPattern: RegExp,
+  timeoutMs = 20_000,
+): Promise<void> {
+  try {
+    await expect(page.locator('body')).toContainText(expectedPattern, { timeout: timeoutMs });
+  } catch (error) {
+    const textSnapshot = await getVisibleTextSnapshot(page);
+    throw new Error(
+      [
+        `Timed out waiting for page text matching ${expectedPattern}.`,
+        `URL: ${page.url()}`,
+        `Visible text snapshot: ${textSnapshot}`,
+        `Original error: ${String(error)}`,
+      ].join('\n'),
+    );
   }
 }
 
