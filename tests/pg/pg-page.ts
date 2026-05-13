@@ -79,6 +79,21 @@ export class PgPage {
   }
 
   /**
+   * 패밀리 가맹점 케이스를 직접 검증해야 하는 시나리오에서 option value 기준으로 선택한다.
+   *
+   * 로컬 화면은 `PO...` 값을 선택하면 실제 요청용 `shop_cd`를 `#shopCd`에 별도로 채운다.
+   */
+  async selectShopByCode(shopCode: string): Promise<void> {
+    const shopSelect = this.page.locator('#shop_sel');
+    const shopCdInput = this.page.locator('#shopCd');
+
+    await expect(shopSelect).toBeVisible();
+    await shopSelect.selectOption({ value: shopCode });
+    await expect(shopSelect).toHaveValue(shopCode);
+    await expect(shopCdInput).not.toHaveValue('');
+  }
+
+  /**
    * 시나리오가 결제금액을 명시하면 암호화 전에 테스트 페이지의 pay_amt를 조정한다.
    */
   async setPaymentAmount(amount: number): Promise<void> {

@@ -23,7 +23,8 @@ export type PaymentScenario = {
 export type FamilyPaymentScenario = {
   name: string;
   pgProvider: PaymentPgProvider;
-  shopName: string;
+  shopName?: string;
+  shopCode?: string;
   paymentAmount: number;
   usePointAmount: number;
   expectedSuccessPattern: RegExp;
@@ -72,14 +73,32 @@ export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.ma
 /**
  * 일반 카드포인트 결제와 성공 화면이 다른 패밀리포인트 할인권 요청 시나리오다.
  */
-export const familyPaymentScenario: FamilyPaymentScenario = {
-  name: `패밀리 할인권 ${env.familyPaymentAmount} 결제`,
-  pgProvider: familyPaymentPgProvider,
-  shopName: env.familyPaymentShopName,
-  paymentAmount: env.familyPaymentAmount,
-  usePointAmount: env.familyPaymentUsePointAmount,
-  expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
-};
+export const familyPaymentScenarios: FamilyPaymentScenario[] = buildFamilyPaymentScenarios();
+
+function buildFamilyPaymentScenarios(): FamilyPaymentScenario[] {
+  const common = {
+    pgProvider: familyPaymentPgProvider,
+    paymentAmount: env.familyPaymentAmount,
+    usePointAmount: env.familyPaymentUsePointAmount,
+    expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
+  };
+
+  if (env.familyPaymentShopCodes.length > 0) {
+    return env.familyPaymentShopCodes.map((shopCode) => ({
+      ...common,
+      name: `패밀리 shop_cd ${shopCode} 할인권 ${env.familyPaymentAmount} 결제`,
+      shopCode,
+    }));
+  }
+
+  return [
+    {
+      ...common,
+      name: `패밀리 ${env.familyPaymentShopName} 할인권 ${env.familyPaymentAmount} 결제`,
+      shopName: env.familyPaymentShopName,
+    },
+  ];
+}
 
 /**
  * PG 연동 API 테스트 영역의 약관 조회/동의 흐름 데이터다.

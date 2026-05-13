@@ -26,6 +26,14 @@ export const env = {
   familyPaymentAmount: getNumberEnv('FAMILY_PAYMENT_AMOUNT', 5000),
   familyPaymentUsePointAmount: getNumberEnv('FAMILY_PAYMENT_USE_POINT_AMOUNT', 5000),
   familyPaymentShopName: getEnv('FAMILY_PAYMENT_SHOP_NAME', '세틀_패밀리박스'),
+  familyPaymentShopCodes: getListEnv('FAMILY_PAYMENT_SHOP_CODES', [
+    'PO0134',
+    'PO0018',
+    'PO0017',
+    'PO0016',
+    'PO0015',
+    'PO0011',
+  ]),
   familyPaymentSuccessTextPattern: getEnv(
     'FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN',
     defaultFamilyPaymentSuccessTextPattern,

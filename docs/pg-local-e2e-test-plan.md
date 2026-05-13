@@ -33,6 +33,7 @@ SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
 FAMILY_PAYMENT_AMOUNT=5000
 FAMILY_PAYMENT_USE_POINT_AMOUNT=5000
 FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
+FAMILY_PAYMENT_SHOP_CODES=PO0134,PO0018,PO0017,PO0016,PO0015,PO0011
 FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN=가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다
 API_POINT_TTL_PNT=1000
 API_POINT_TTL_PAY_AMT=5000
@@ -67,7 +68,8 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 
 1. `http://localhost/pg/pgfront.do` 접속
 2. `패밀리` PG사 탭 선택
-3. `세틀_패밀리박스` 가맹점 선택
+3. `FAMILY_PAYMENT_SHOP_CODES`가 있으면 각 값별로 별도 테스트를 등록하고 `#shop_sel` option value 기준으로 가맹점 선택
+   - 값이 없으면 `FAMILY_PAYMENT_SHOP_NAME`의 기본 가맹점 `세틀_패밀리박스` 선택
 4. 필요 시 `pay_amt`를 `FAMILY_PAYMENT_AMOUNT` 값으로 설정
 5. `암호화` 버튼 클릭
 6. `PC전용 Submit` 버튼 클릭
@@ -131,6 +133,7 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 - 버튼은 `getByRole('button', { name: /암호화|PC전용 Submit|포인트조회하기|전송|결제|전환하기|확인/ })` 형태를 우선 사용한다.
 - PG사 선택은 `ul.tabs li`의 노출 텍스트를 우선 사용하고, 선택 후 `#pg_cd` 값으로 PG 코드가 갱신됐는지 확인한다.
 - 가맹점 선택이 필요한 시나리오는 `#shop_sel` 옵션 텍스트로 선택하고 `#shopName` 값으로 반영 여부를 확인한다.
+- 패밀리포인트 가맹점 시나리오는 `#shop_sel` option value로 선택하고 실제 요청용 `shop_cd`가 `#shopCd`에 반영됐는지 확인한다.
 - `포인트조회하기`처럼 button role이 아닌 clickable 텍스트는 visible text 클릭 fallback을 사용한다.
 - 입력 필드는 label, name, id, 주변 텍스트 기반 탐색 순서로 찾는다.
 - 카드포인트 입력란은 명시 라벨이 없으므로 카드사별 목록의 `사용포인트` 헤더 아래 `input.pnt` 입력 필드를 우선 찾는다.
@@ -194,17 +197,19 @@ export const paymentScenarios = [
 패밀리포인트 할인권 요청은 일반 결제 시나리오와 분리한다.
 
 ```ts
-export const familyPaymentScenario = {
-  name: '패밀리 할인권 5000 결제',
-  pgProvider: { name: '패밀리', code: 'PG_FAM' },
-  shopName: '세틀_패밀리박스',
-  paymentAmount: 5000,
-  usePointAmount: 5000,
-  expectedSuccessPattern: /할인권 요청 메시지가 발송 되었습니다/,
-};
+export const familyPaymentScenarios = [
+  {
+    name: '패밀리 세틀_패밀리박스 할인권 5000 결제',
+    pgProvider: { name: '패밀리', code: 'PG_FAM' },
+    shopName: '세틀_패밀리박스',
+    paymentAmount: 5000,
+    usePointAmount: 5000,
+    expectedSuccessPattern: /할인권 요청 메시지가 발송 되었습니다/,
+  },
+];
 ```
 
-나중에 금액이나 설정만 다른 시나리오는 `scenarios.ts`에 항목을 하나 더 추가한다.
+나중에 금액이나 설정만 다른 시나리오는 `scenarios.ts`에 항목을 하나 더 추가한다. 패밀리포인트에서 `FAMILY_PAYMENT_SHOP_CODES`를 지정하면 각 값마다 `familyPaymentScenarios` 항목이 만들어지고 테스트가 별도로 등록된다.
 
 ```ts
 {
