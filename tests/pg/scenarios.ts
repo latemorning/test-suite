@@ -16,8 +16,12 @@ export type PaymentScenario = {
   shopName?: string;
   paymentAmount: number;
   convertedPointAmount: number;
+  paymentFlow: PaymentFlow;
+  payLimitRate?: number;
   expectedSuccessPattern: RegExp;
 };
+
+export type PaymentFlow = 'standard-card-point' | 'settle-combined-exhaustion';
 
 /**
  * 패밀리포인트 할인권 요청 플로우에서 시나리오별로 바뀌는 입력값과 성공 기준이다.
@@ -69,18 +73,47 @@ type FamilyPaymentShopSelection = {
 };
 
 /**
- * 화면 결제 E2E에서 선택할 PG사 탭, 검증용 PG 코드, 필요 시 가맹점 기본값이다.
+ * 화면 결제 E2E에서 선택할 PG사 탭과 검증용 PG 코드다.
  */
 export type PaymentPgProvider = {
   name: string;
   code: string;
-  shopName?: string;
 };
 
-const paymentPgProvidersByName: Record<string, PaymentPgProvider> = {
-  세틀뱅크: { name: '세틀뱅크', code: 'PG0001' },
-  메크로스: { name: '메크로스', code: 'PG0004' },
-  페이레터: { name: '페이레터', code: 'PG0006', shopName: '페이레터_UI_CU' },
+type PaymentPgProviderConfig = PaymentPgProvider & {
+  shops: PaymentShopConfig[];
+};
+
+type PaymentShopConfig = {
+  name: string;
+  paymentFlow?: PaymentFlow;
+  payLimitRate?: number;
+};
+
+const paymentPgProvidersByName: Record<string, PaymentPgProviderConfig> = {
+  세틀뱅크: {
+    name: '세틀뱅크',
+    code: 'PG0001',
+    shops: [
+      { name: '소진형테스트가맹점' },
+      { name: '수커뮤니케이션' },
+      {
+        name: '세틀_복합결제(소진형)',
+        paymentFlow: 'settle-combined-exhaustion',
+        payLimitRate: 100,
+      },
+    ],
+  },
+  메크로스: {
+    name: '메크로스',
+    code: 'PG0004',
+    shops: [{ name: '메가파일' }],
+  },
+  페이레터: {
+    name: '페이레터',
+    code: 'PG0006',
+    shops: [{ name: '페이레터_UI_CU' }, { name: '페이레터_UI_SI' }, { name: '페이레터_1' }],
+  },
 };
 
 const familyPaymentPgProvider: PaymentPgProvider = { name: '패밀리', code: 'PG_FAM' };
@@ -104,14 +137,18 @@ export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.fl
       );
     }
 
-    return env.cardPointAmounts.map((paymentAmount) => ({
-      name: `${pgProvider.name} 카드포인트 ${paymentAmount} 결제`,
-      pgProvider,
-      shopName: pgProvider.shopName,
-      paymentAmount,
-      convertedPointAmount: paymentAmount,
-      expectedSuccessPattern: new RegExp(env.successTextPattern),
-    }));
+    return pgProvider.shops.flatMap((shop) =>
+      env.cardPointAmounts.map((paymentAmount) => ({
+        name: `${pgProvider.name} ${shop.name} 카드포인트 ${paymentAmount} 결제`,
+        pgProvider,
+        shopName: shop.name,
+        paymentAmount,
+        convertedPointAmount: paymentAmount,
+        paymentFlow: shop.paymentFlow ?? 'standard-card-point',
+        payLimitRate: shop.payLimitRate,
+        expectedSuccessPattern: new RegExp(env.successTextPattern),
+      })),
+    );
   },
 );
 

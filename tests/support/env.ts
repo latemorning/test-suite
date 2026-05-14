@@ -82,7 +82,7 @@ function stripQuotes(value: string): string {
 }
 
 function getCardPointAmounts(): number[] {
-  const amounts = getNumberListEnv('CARD_POINT_AMOUNTS', [5000, 10000, 20000]);
+  const amounts = getNumberListEnv('CARD_POINT_AMOUNTS', []);
   if (amounts.length > 0) return amounts;
 
   // 기존 단일 금액 설정을 쓰는 로컬 .env가 있으면 그 값을 우선해 호환성을 유지한다.

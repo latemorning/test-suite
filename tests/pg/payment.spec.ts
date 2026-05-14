@@ -3,12 +3,12 @@ import { expectSuccessAlert } from './assertions';
 import { CardPointPaymentPage } from './card-point-payment-page';
 import { PgPage } from './pg-page';
 import { paymentScenarios } from './scenarios';
+import { SettleCombinedPaymentPage } from './settle-combined-payment-page';
 
 test.describe('PG local payment flow', { tag: ['@payment', '@e2e'] }, () => {
   for (const scenario of paymentScenarios) {
     test(scenario.name, async ({ page }) => {
       const pg = new PgPage(page);
-      let cardPayment = new CardPointPaymentPage(page);
 
       await test.step('페이지 접속', async () => {
         await pg.goto();
@@ -32,6 +32,44 @@ test.describe('PG local payment flow', { tag: ['@payment', '@e2e'] }, () => {
       await test.step('암호화 버튼 클릭', async () => {
         await pg.encrypt();
       });
+
+      const { payLimitRate } = scenario;
+      if (payLimitRate !== undefined) {
+        await test.step(`포인트 사용 제한율 설정: ${payLimitRate}`, async () => {
+          await pg.setPayLimitRate(payLimitRate);
+        });
+      }
+
+      if (scenario.paymentFlow === 'settle-combined-exhaustion') {
+        let combinedPayment = new SettleCombinedPaymentPage(page);
+
+        await test.step('테스트서브밋 후 복합결제 팝업 열기', async () => {
+          combinedPayment = new SettleCombinedPaymentPage(await pg.submitTest());
+        });
+
+        await test.step('복합결제 약관 전체동의 후 본인인증 진입', async () => {
+          await combinedPayment.agreeTerms();
+        });
+
+        await test.step('가상 인증 팝업 전송', async () => {
+          await combinedPayment.sendVirtualAuth();
+        });
+
+        await test.step('전환포인트 기준 사용포인트 입력', async () => {
+          await combinedPayment.enterCardPoint(scenario.convertedPointAmount);
+        });
+
+        await test.step('복합결제 후 성공 alert 확인', async () => {
+          await expectSuccessAlert(combinedPayment.page, scenario.expectedSuccessPattern, async () => {
+            await combinedPayment.pay();
+            await combinedPayment.confirmIfPresent();
+          });
+        });
+
+        return;
+      }
+
+      let cardPayment = new CardPointPaymentPage(page);
 
       await test.step('테스트서브밋 후 팝업 열기', async () => {
         cardPayment = new CardPointPaymentPage(await pg.submitTest());

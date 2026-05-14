@@ -106,6 +106,18 @@ export class PgPage {
   }
 
   /**
+   * 복합결제처럼 포인트 사용 제한율을 명시해야 하는 시나리오에서 값을 입력한다.
+   */
+  async setPayLimitRate(rate: number): Promise<void> {
+    const value = String(rate);
+    const input = this.page.locator('#payLimitRate, input[name="pay_limit_rate"]').first();
+
+    await expect(input).toBeVisible();
+    await input.fill(value);
+    await expect(input).toHaveValue(value);
+  }
+
+  /**
    * PC전용 Submit을 실행하고, 새 창이 열리면 이후 조작 대상을 그 창으로 전환한다.
    */
   async submitTest(): Promise<Page> {

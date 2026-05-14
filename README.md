@@ -78,7 +78,8 @@ HEADED_SLOW_MO_MS=250
 
 새 결제 케이스는 [tests/pg/scenarios.ts](tests/pg/scenarios.ts)에 항목을 추가합니다.
 
-결제 플로우는 기본적으로 `PAYMENT_PG_PROVIDERS`에 지정된 PG사 탭과 `CARD_POINT_AMOUNTS`에 지정된 금액 목록을 곱해 별도 테스트로 등록합니다. 일반 결제 금액을 여러 개 실행하려면 쉼표로 구분해 `CARD_POINT_AMOUNTS=1000,5000,10000`처럼 지정합니다.
+결제 플로우는 기본적으로 `PAYMENT_PG_PROVIDERS`에 지정된 PG사 탭, [tests/pg/scenarios.ts](tests/pg/scenarios.ts)의 PG별 가맹점 목록, `CARD_POINT_AMOUNTS`에 지정된 금액 목록을 곱해 별도 테스트로 등록합니다. 일반 결제 금액을 여러 개 실행하려면 쉼표로 구분해 `CARD_POINT_AMOUNTS=1000,5000,10000`처럼 지정합니다.
+`세틀_복합결제(소진형)`은 `paymentFlow='settle-combined-exhaustion'`과 `payLimitRate=100`을 쓰는 예외 케이스입니다. 이 경우 약관 화면은 `#agreeAll`과 `#send`, 포인트 입력 화면은 `settle-combined-payment-page.ts`에서 처리합니다.
 
 패밀리포인트 할인권 요청은 `PC전용 Submit` 이후 팝업 흐름이 일반 결제와 달라 [tests/pg/family-payment.spec.ts](tests/pg/family-payment.spec.ts)와 [tests/pg/family-payment-page.ts](tests/pg/family-payment-page.ts)에서 별도로 실행합니다.
 `FAMILY_PAYMENT_SHOP_CODES`에 쉼표로 구분한 값을 넣으면 각 값마다 별도 테스트가 등록됩니다. 이 값은 `#shop_sel`의 option value 기준이며, 선택 후 실제 요청용 `shop_cd`는 화면의 `#shopCd`에 반영됩니다.
