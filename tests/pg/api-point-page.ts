@@ -10,7 +10,9 @@ export type ApiPointPaymentParams = {
   shopCmsnRate: number;
   cardPoint: {
     providerCode: string;
+    /** 전환포인트 목표값에 맞춰 환산된 카드 사용포인트다. */
     usePoint: number;
+    /** 사용포인트를 전환포인트로 바꾸는 비율이다. 현대카드는 2/3이다. */
     conversionRate: number;
   };
 };
@@ -52,6 +54,9 @@ export class ApiPointPage {
 
     await expect(row.locator('.api_card_pnt_cd')).toHaveValue(params.cardPoint.providerCode);
     await expect(row.locator('.api_card_use_pnt')).toHaveValue(String(params.cardPoint.usePoint));
+    await expect(row.locator('.api_card_cvt_rate')).toHaveValue(
+      String(params.cardPoint.conversionRate),
+    );
   }
 
   /**

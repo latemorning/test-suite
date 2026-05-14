@@ -41,8 +41,8 @@ test.describe('PG local payment flow', { tag: ['@payment', '@e2e'] }, () => {
         await cardPayment.sendVirtualAuth();
       });
 
-      await test.step('사용포인트 입력', async () => {
-        await cardPayment.enterCardPoint(scenario.pointAmount);
+      await test.step('전환포인트 기준 사용포인트 입력', async () => {
+        await cardPayment.enterCardPoint(scenario.convertedPointAmount);
       });
 
       await test.step('결제 후 성공 alert 확인', async () => {

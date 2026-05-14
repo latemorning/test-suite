@@ -5,15 +5,16 @@ import type {
   ApiTermsCommonParams,
   ExpectedApiTerm,
 } from './api-terms-page';
+import { resolvePointExchangeRate, toUsePointAmount } from './point-conversion';
 
 /**
- * 화면 결제 E2E에서 시나리오별로 바뀌는 입력값과 성공 기준이다.
+ * 화면 결제 E2E에서 시나리오별로 바뀌는 전환포인트 목표값과 성공 기준이다.
  */
 export type PaymentScenario = {
   name: string;
   pgProvider: PaymentPgProvider;
   shopName?: string;
-  pointAmount: number;
+  convertedPointAmount: number;
   expectedSuccessPattern: RegExp;
 };
 
@@ -37,20 +38,20 @@ type FamilyPaymentScenarioBase = {
 
 type FamilyPaymentSuccessExpectation = {
   expectedOutcome: 'success';
-  usePointAmount: number;
+  convertedPointAmount: number;
   expectedSuccessPattern: RegExp;
 };
 
 type FamilyPaymentPointUnitErrorExpectation = {
   expectedOutcome: 'point-unit-error';
-  invalidUsePointAmount: number;
+  invalidConvertedPointAmount: number;
   expectedLayerPattern: RegExp;
 };
 
 type FamilyPaymentMaxAmountErrorExpectation = {
   expectedOutcome: 'maximum-amount-error';
-  minimumTotalAvailablePointAmount: number;
-  additionalUsePointAmount: number;
+  minimumTotalAvailableConvertedPointAmount: number;
+  additionalConvertedPointAmount: number;
   expectedLayerPattern: RegExp;
   insufficientPointMessage: string;
 };
@@ -105,7 +106,7 @@ export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.ma
     name: `${pgProvider.name} 카드포인트 ${env.cardPointAmount} 결제`,
     pgProvider,
     shopName: pgProvider.shopName,
-    pointAmount: env.cardPointAmount,
+    convertedPointAmount: env.cardPointAmount,
     expectedSuccessPattern: new RegExp(env.successTextPattern),
   };
 });
@@ -153,7 +154,7 @@ function buildFamilyPaymentExpectation(paymentAmount: number): FamilyPaymentScen
   if (paymentAmount === 900) {
     return {
       expectedOutcome: 'point-unit-error',
-      invalidUsePointAmount: 900,
+      invalidConvertedPointAmount: 900,
       expectedLayerPattern: familyPaymentPointUnitErrorPattern,
     };
   }
@@ -161,8 +162,8 @@ function buildFamilyPaymentExpectation(paymentAmount: number): FamilyPaymentScen
   if (paymentAmount === 501000) {
     return {
       expectedOutcome: 'maximum-amount-error',
-      minimumTotalAvailablePointAmount: 501000,
-      additionalUsePointAmount: 1000,
+      minimumTotalAvailableConvertedPointAmount: 501000,
+      additionalConvertedPointAmount: 1000,
       expectedLayerPattern: familyPaymentMaxAmountErrorPattern,
       insufficientPointMessage: '501000포인트 미만 포인트 보유',
     };
@@ -170,7 +171,7 @@ function buildFamilyPaymentExpectation(paymentAmount: number): FamilyPaymentScen
 
   return {
     expectedOutcome: 'success',
-    usePointAmount: paymentAmount,
+    convertedPointAmount: paymentAmount,
     expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
   };
 }
@@ -229,21 +230,27 @@ export type ApiPointPaymentScenario = {
   pointParams: ApiPointPaymentParams;
 };
 
+const apiPointExchangeRate = resolvePointExchangeRate({
+  providerCode: env.apiPointCardProvider,
+  exchangeRate: env.apiPointTtlPntAmt / env.apiPointTtlPnt,
+});
+const apiPointUsePointAmount = toUsePointAmount(env.apiPointTtlPntAmt, apiPointExchangeRate);
+
 /**
- * v1 포인트 API 결제의 기본 KB 카드포인트 시나리오다.
+ * v1 포인트 API 결제의 기본 카드포인트 시나리오다.
  */
 export const apiPointPaymentScenario: ApiPointPaymentScenario = {
-  name: '약관 동의 후 포인트 API KB 카드포인트 결제',
+  name: `약관 동의 후 포인트 API ${env.apiPointCardProvider} 카드포인트 결제`,
   terms: apiTermsScenario,
   pointParams: {
-    ttlPnt: env.apiPointTtlPnt,
+    ttlPnt: apiPointUsePointAmount,
     ttlPayAmt: env.apiPointTtlPayAmt,
     ttlPntAmt: env.apiPointTtlPntAmt,
     shopCmsnRate: env.apiPointShopCmsnRate,
     cardPoint: {
       providerCode: env.apiPointCardProvider,
-      usePoint: env.apiPointTtlPnt,
-      conversionRate: env.apiPointTtlPntAmt / env.apiPointTtlPnt,
+      usePoint: apiPointUsePointAmount,
+      conversionRate: apiPointExchangeRate,
     },
   },
 };

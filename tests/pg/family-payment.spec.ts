@@ -59,8 +59,10 @@ test.describe('PG local family payment flow', { tag: ['@family-payment', '@e2e']
           await familyPayment.resetAllUsePoints();
         });
 
-        await test.step(`사용가능 카드사에 ${scenario.invalidUsePointAmount} 포인트 입력`, async () => {
-          await familyPayment.enterFirstEligibleUsePoint(scenario.invalidUsePointAmount);
+        await test.step(`사용가능 카드사에 전환포인트 ${scenario.invalidConvertedPointAmount}P 입력`, async () => {
+          await familyPayment.enterFirstEligibleConvertedPoint(
+            scenario.invalidConvertedPointAmount,
+          );
         });
 
         await test.step('1000P 단위 오류 레이어 확인', async () => {
@@ -71,10 +73,10 @@ test.describe('PG local family payment flow', { tag: ['@family-payment', '@e2e']
       }
 
       if (scenario.expectedOutcome === 'maximum-amount-error') {
-        await test.step(`자동 설정 사용포인트에 ${scenario.additionalUsePointAmount} 포인트 추가`, async () => {
-          await familyPayment.addOneThousandPointOverAutomaticMaximum(
-            scenario.additionalUsePointAmount,
-            scenario.minimumTotalAvailablePointAmount,
+        await test.step(`자동 설정 전환포인트에 ${scenario.additionalConvertedPointAmount}P 추가`, async () => {
+          await familyPayment.addConvertedPointOverAutomaticMaximum(
+            scenario.additionalConvertedPointAmount,
+            scenario.minimumTotalAvailableConvertedPointAmount,
             scenario.insufficientPointMessage,
           );
         });
@@ -90,8 +92,8 @@ test.describe('PG local family payment flow', { tag: ['@family-payment', '@e2e']
         await familyPayment.resetAllUsePoints();
       });
 
-      await test.step(`사용가능 카드사에 ${scenario.usePointAmount} 포인트 입력`, async () => {
-        await familyPayment.enterFirstEligibleUsePoint(scenario.usePointAmount);
+      await test.step(`사용가능 카드사에 전환포인트 ${scenario.convertedPointAmount}P 입력`, async () => {
+        await familyPayment.enterFirstEligibleConvertedPoint(scenario.convertedPointAmount);
       });
 
       await test.step('결과 문자열 ret_code=00 확인', async () => {

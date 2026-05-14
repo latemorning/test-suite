@@ -6,11 +6,19 @@ import {
   resolveUsablePage,
   withAutoAcceptDialogs,
 } from './page-actions';
+import {
+  resolvePointExchangeRate,
+  toConvertedPointAmount,
+  toUsePointAmount,
+} from './point-conversion';
 
 type FamilyPointCandidate = {
   index: number;
   availablePoint: number;
+  availableConvertedPoint: number;
   usePoint: number;
+  convertedPoint: number;
+  exchangeRate: number;
   pointCode: string;
   pointName: string;
   rowText: string;
@@ -19,7 +27,9 @@ type FamilyPointCandidate = {
 type FamilyPointState = {
   candidates: FamilyPointCandidate[];
   totalAvailablePoint: number;
+  totalAvailableConvertedPoint: number;
   totalUsePoint: number;
+  totalConvertedPoint: number;
 };
 
 /**
@@ -95,15 +105,16 @@ export class FamilyPaymentPage {
   }
 
   /**
-   * 사용가능 포인트가 기준 금액 이상인 첫 카드사 행에만 사용포인트를 입력한다.
+   * 사용가능 전환포인트가 기준 금액 이상인 첫 카드사 행에만 사용포인트를 입력한다.
    */
-  async enterFirstEligibleUsePoint(usePointAmount: number): Promise<FamilyPointCandidate> {
-    const selection = await this.findFirstEligiblePointCandidate(usePointAmount);
-    const input = this.currentPage
-      .locator('.pointGroup')
-      .nth(selection.index)
-      .locator('input.pnt')
-      .first();
+  async enterFirstEligibleConvertedPoint(
+    convertedPointAmount: number,
+  ): Promise<FamilyPointCandidate> {
+    const selection = await this.findFirstEligibleConvertedPointCandidate(convertedPointAmount);
+    const group = this.currentPage.locator('.pointGroup').nth(selection.index);
+    const input = group.locator('input.pnt').first();
+    const convertedPoint = group.locator('.cprtAmt').first();
+    const usePointAmount = toUsePointAmount(convertedPointAmount, selection.exchangeRate);
 
     await input.fill(String(usePointAmount));
     await input.dispatchEvent('input');
@@ -116,31 +127,40 @@ export class FamilyPaymentPage {
       })
       .toBe(usePointAmount);
 
+    await expect
+      .poll(async () => readConvertedPointAmount(convertedPoint), {
+        message: `Expected selected family point row to convert to ${convertedPointAmount} points.`,
+      })
+      .toBe(convertedPointAmount);
+
     return selection;
   }
 
   /**
-   * 자동 최대 사용포인트 상태에서 1,000P를 추가해 최대 할인권금액 오류 조건을 만든다.
+   * 자동 최대 전환포인트 상태에서 지정한 전환포인트를 추가해 최대 할인권금액 오류 조건을 만든다.
    */
-  async addOneThousandPointOverAutomaticMaximum(
-    additionalUsePointAmount: number,
-    minimumTotalAvailablePointAmount: number,
+  async addConvertedPointOverAutomaticMaximum(
+    additionalConvertedPointAmount: number,
+    minimumTotalAvailableConvertedPointAmount: number,
     insufficientPointMessage: string,
   ): Promise<void> {
     const state = await this.getPointState();
-    if (state.totalAvailablePoint < minimumTotalAvailablePointAmount) {
+    if (state.totalAvailableConvertedPoint < minimumTotalAvailableConvertedPointAmount) {
       throw new Error(insufficientPointMessage);
     }
 
     const candidate = state.candidates.find(
-      (item) => item.availablePoint - item.usePoint >= additionalUsePointAmount,
+      (item) =>
+        item.availablePoint - item.usePoint >=
+          toUsePointAmount(additionalConvertedPointAmount, item.exchangeRate) &&
+        item.availableConvertedPoint - item.convertedPoint >= additionalConvertedPointAmount,
     );
     if (!candidate) {
       throw new Error(
         [
-          `Could not find a family point row that can add ${additionalUsePointAmount} points.`,
-          `Current total: ${state.totalUsePoint}`,
-          `Available total: ${state.totalAvailablePoint}`,
+          `Could not find a family point row that can add ${additionalConvertedPointAmount} converted points.`,
+          `Current converted total: ${state.totalConvertedPoint}`,
+          `Available converted total: ${state.totalAvailableConvertedPoint}`,
           `URL: ${this.currentPage.url()}`,
         ].join('\n'),
       );
@@ -157,17 +177,22 @@ export class FamilyPaymentPage {
       );
     }
 
-    const expectedTotalUsePointAmount = state.totalUsePoint + additionalUsePointAmount;
+    const additionalUsePointAmount = toUsePointAmount(
+      additionalConvertedPointAmount,
+      candidate.exchangeRate,
+    );
+    const expectedTotalConvertedPointAmount =
+      state.totalConvertedPoint + additionalConvertedPointAmount;
     await input.fill(String(candidate.usePoint + additionalUsePointAmount));
     await input.dispatchEvent('input');
     await input.dispatchEvent('change');
     await input.dispatchEvent('focusout');
 
     await expect
-      .poll(async () => (await this.getPointState()).totalUsePoint, {
-        message: `Expected family point use total to be ${expectedTotalUsePointAmount}.`,
+      .poll(async () => (await this.getPointState()).totalConvertedPoint, {
+        message: `Expected family point converted total to be ${expectedTotalConvertedPointAmount}.`,
       })
-      .toBe(expectedTotalUsePointAmount);
+      .toBe(expectedTotalConvertedPointAmount);
   }
 
   /**
@@ -221,50 +246,28 @@ export class FamilyPaymentPage {
     }
   }
 
-  private async findFirstEligiblePointCandidate(
-    usePointAmount: number,
+  private async findFirstEligibleConvertedPointCandidate(
+    convertedPointAmount: number,
   ): Promise<FamilyPointCandidate> {
-    const result = await this.currentPage.evaluate((amount) => {
-      const toNumber = (value: string | null | undefined): number => {
-        const parsed = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
-        return Number.isFinite(parsed) ? parsed : 0;
-      };
+    const candidates = await this.getPointCandidates();
+    const selected =
+      candidates.find((candidate) => candidate.availableConvertedPoint >= convertedPointAmount) ??
+      null;
 
-      const groups = Array.from(document.querySelectorAll('.pointGroup'));
-      const candidates = groups.map((group, index) => {
-        const avlPoint = group.querySelector<HTMLElement>('.avlPnt');
-        const input = group.querySelector<HTMLInputElement>('input.pnt');
-        const pointCode = group.querySelector<HTMLInputElement>('.pntCd');
-        const pointName = group.querySelector<HTMLImageElement>('img');
+    if (selected) return selected;
 
-        return {
-          index,
-          availablePoint: toNumber(avlPoint?.getAttribute('val') ?? avlPoint?.textContent),
-          usePoint: toNumber(input?.value),
-          pointCode: pointCode?.value ?? '',
-          pointName: pointName?.alt ?? '',
-          rowText: (group.textContent ?? '').replace(/\s+/g, ' ').trim(),
-        };
-      });
-
-      const selected = candidates.find((candidate) => candidate.availablePoint >= amount) ?? null;
-      return { selected, candidates };
-    }, usePointAmount);
-
-    if (result.selected) return result.selected;
-
-    const candidateSummary = result.candidates
+    const candidateSummary = candidates
       .map(
         (candidate) =>
           `#${candidate.index + 1} ${candidate.pointName || candidate.pointCode || '(unknown)'}: ${
-            candidate.availablePoint
-          }`,
+            candidate.availableConvertedPoint
+          } converted / ${candidate.availablePoint} use`,
       )
       .join(' | ');
 
     throw new Error(
       [
-        `Could not find a family point row with at least ${usePointAmount} available points.`,
+        `Could not find a family point row with at least ${convertedPointAmount} available converted points.`,
         `Candidates: ${candidateSummary || '(none)'}`,
         `URL: ${this.currentPage.url()}`,
       ].join('\n'),
@@ -311,6 +314,27 @@ export class FamilyPaymentPage {
   }
 
   private async getPointState(): Promise<FamilyPointState> {
+    const candidates = await this.getPointCandidates();
+
+    return {
+      candidates,
+      totalAvailablePoint: candidates.reduce(
+        (total, candidate) => total + candidate.availablePoint,
+        0,
+      ),
+      totalAvailableConvertedPoint: candidates.reduce(
+        (total, candidate) => total + candidate.availableConvertedPoint,
+        0,
+      ),
+      totalUsePoint: candidates.reduce((total, candidate) => total + candidate.usePoint, 0),
+      totalConvertedPoint: candidates.reduce(
+        (total, candidate) => total + candidate.convertedPoint,
+        0,
+      ),
+    };
+  }
+
+  private async getPointCandidates(): Promise<FamilyPointCandidate[]> {
     const candidates = await this.currentPage.evaluate(() => {
       const toNumber = (value: string | null | undefined): number => {
         const parsed = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
@@ -320,6 +344,8 @@ export class FamilyPaymentPage {
       return Array.from(document.querySelectorAll('.pointGroup')).map((group, index) => {
         const avlPoint = group.querySelector<HTMLElement>('.avlPnt');
         const input = group.querySelector<HTMLInputElement>('input.pnt');
+        const convertedPoint = group.querySelector<HTMLElement>('.cprtAmt');
+        const exchangeRate = group.querySelector<HTMLInputElement>('.pntExchRate');
         const pointCode = group.querySelector<HTMLInputElement>('.pntCd');
         const pointName = group.querySelector<HTMLImageElement>('img');
 
@@ -327,6 +353,10 @@ export class FamilyPaymentPage {
           index,
           availablePoint: toNumber(avlPoint?.getAttribute('val') ?? avlPoint?.textContent),
           usePoint: toNumber(input?.value),
+          convertedPoint: toNumber(
+            convertedPoint?.textContent ?? convertedPoint?.getAttribute('val'),
+          ),
+          exchangeRate: toNumber(exchangeRate?.value),
           pointCode: pointCode?.value ?? '',
           pointName: pointName?.alt ?? '',
           rowText: (group.textContent ?? '').replace(/\s+/g, ' ').trim(),
@@ -334,20 +364,26 @@ export class FamilyPaymentPage {
       });
     });
 
-    return {
-      candidates,
-      totalAvailablePoint: candidates.reduce(
-        (total, candidate) => total + candidate.availablePoint,
-        0,
-      ),
-      totalUsePoint: candidates.reduce((total, candidate) => total + candidate.usePoint, 0),
-    };
+    return candidates.map((candidate) => {
+      const exchangeRate = resolvePointExchangeRate(candidate);
+
+      return {
+        ...candidate,
+        exchangeRate,
+        availableConvertedPoint: toConvertedPointAmount(candidate.availablePoint, exchangeRate),
+      };
+    });
   }
 }
 
 function parsePointAmount(value: string): number {
   const parsed = Number(value.replace(/[^\d.-]/g, ''));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function readConvertedPointAmount(locator: ReturnType<Page['locator']>): Promise<number> {
+  const value = (await locator.textContent()) ?? (await locator.getAttribute('val')) ?? '';
+  return parsePointAmount(value);
 }
 
 function getPayloadString(payload: unknown, fieldName: string): string {

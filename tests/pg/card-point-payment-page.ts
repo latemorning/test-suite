@@ -8,6 +8,7 @@ import {
   resolveUsablePage,
   withAutoAcceptDialogs,
 } from './page-actions';
+import { fillConvertedPointInput } from './point-conversion';
 
 /**
  * PC전용 Submit 이후 일반 카드포인트 결제 팝업 흐름을 조작한다.
@@ -52,11 +53,11 @@ export class CardPointPaymentPage {
   }
 
   /**
-   * 카드사별 사용포인트 입력란에 시나리오의 포인트 금액을 입력한다.
+   * 카드사별 사용포인트 입력란에 시나리오의 전환포인트 금액을 입력한다.
    */
-  async enterCardPoint(pointAmount: number): Promise<void> {
+  async enterCardPoint(convertedPointAmount: number): Promise<void> {
     const input = await findUsePointInput(this.currentPage);
-    await input.fill(String(pointAmount));
+    await fillConvertedPointInput(input, convertedPointAmount);
   }
 
   /**
