@@ -20,14 +20,50 @@ export type PaymentScenario = {
 /**
  * 패밀리포인트 할인권 요청 플로우에서 시나리오별로 바뀌는 입력값과 성공 기준이다.
  */
-export type FamilyPaymentScenario = {
+export type FamilyPaymentScenario = FamilyPaymentScenarioBase &
+  (
+    | FamilyPaymentSuccessExpectation
+    | FamilyPaymentPointUnitErrorExpectation
+    | FamilyPaymentMaxAmountErrorExpectation
+  );
+
+type FamilyPaymentScenarioBase = {
   name: string;
   pgProvider: PaymentPgProvider;
   shopName?: string;
   shopCode?: string;
   paymentAmount: number;
+};
+
+type FamilyPaymentSuccessExpectation = {
+  expectedOutcome: 'success';
   usePointAmount: number;
   expectedSuccessPattern: RegExp;
+};
+
+type FamilyPaymentPointUnitErrorExpectation = {
+  expectedOutcome: 'point-unit-error';
+  invalidUsePointAmount: number;
+  expectedLayerPattern: RegExp;
+};
+
+type FamilyPaymentMaxAmountErrorExpectation = {
+  expectedOutcome: 'maximum-amount-error';
+  minimumTotalAvailablePointAmount: number;
+  additionalUsePointAmount: number;
+  expectedLayerPattern: RegExp;
+  insufficientPointMessage: string;
+};
+
+type FamilyPaymentScenarioExpectation =
+  | FamilyPaymentSuccessExpectation
+  | FamilyPaymentPointUnitErrorExpectation
+  | FamilyPaymentMaxAmountErrorExpectation;
+
+type FamilyPaymentShopSelection = {
+  label: string;
+  shopName?: string;
+  shopCode?: string;
 };
 
 /**
@@ -46,6 +82,10 @@ const paymentPgProvidersByName: Record<string, PaymentPgProvider> = {
 };
 
 const familyPaymentPgProvider: PaymentPgProvider = { name: '패밀리', code: 'PG_FAM' };
+const familyPaymentPointUnitErrorPattern =
+  /사용\s*포인트는\s*1,000P\s*단위로만\s*입력\s*가능합니다/;
+const familyPaymentMaxAmountErrorPattern =
+  /할인권금액은\s*최대\s*500,000원까지\s*가능합니다\.?/;
 
 /**
  * v1 결제 플로우에서 지원하는 PG사별 카드포인트 결제 시나리오다.
@@ -76,28 +116,69 @@ export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.ma
 export const familyPaymentScenarios: FamilyPaymentScenario[] = buildFamilyPaymentScenarios();
 
 function buildFamilyPaymentScenarios(): FamilyPaymentScenario[] {
-  const common = {
-    pgProvider: familyPaymentPgProvider,
-    paymentAmount: env.familyPaymentAmount,
-    usePointAmount: env.familyPaymentUsePointAmount,
-    expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
-  };
+  return buildFamilyPaymentShopSelections().flatMap(({ label, ...shopSelection }) =>
+    env.familyPaymentAmounts.map((paymentAmount) => {
+      const expectation = buildFamilyPaymentExpectation(paymentAmount);
 
+      return {
+        name: `패밀리 ${label} 할인권 ${paymentAmount} 결제 ${formatFamilyPaymentExpectation(
+          expectation,
+        )}`,
+        pgProvider: familyPaymentPgProvider,
+        paymentAmount,
+        ...shopSelection,
+        ...expectation,
+      };
+    }),
+  );
+}
+
+function buildFamilyPaymentShopSelections(): FamilyPaymentShopSelection[] {
   if (env.familyPaymentShopCodes.length > 0) {
     return env.familyPaymentShopCodes.map((shopCode) => ({
-      ...common,
-      name: `패밀리 shop_cd ${shopCode} 할인권 ${env.familyPaymentAmount} 결제`,
+      label: `shop_cd ${shopCode}`,
       shopCode,
     }));
   }
 
   return [
     {
-      ...common,
-      name: `패밀리 ${env.familyPaymentShopName} 할인권 ${env.familyPaymentAmount} 결제`,
+      label: env.familyPaymentShopName,
       shopName: env.familyPaymentShopName,
     },
   ];
+}
+
+function buildFamilyPaymentExpectation(paymentAmount: number): FamilyPaymentScenarioExpectation {
+  if (paymentAmount === 900) {
+    return {
+      expectedOutcome: 'point-unit-error',
+      invalidUsePointAmount: 900,
+      expectedLayerPattern: familyPaymentPointUnitErrorPattern,
+    };
+  }
+
+  if (paymentAmount === 501000) {
+    return {
+      expectedOutcome: 'maximum-amount-error',
+      minimumTotalAvailablePointAmount: 501000,
+      additionalUsePointAmount: 1000,
+      expectedLayerPattern: familyPaymentMaxAmountErrorPattern,
+      insufficientPointMessage: '501000포인트 미만 포인트 보유',
+    };
+  }
+
+  return {
+    expectedOutcome: 'success',
+    usePointAmount: paymentAmount,
+    expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
+  };
+}
+
+function formatFamilyPaymentExpectation(expectation: FamilyPaymentScenarioExpectation): string {
+  if (expectation.expectedOutcome === 'point-unit-error') return '1000P 단위 오류';
+  if (expectation.expectedOutcome === 'maximum-amount-error') return '최대 금액 오류';
+  return '성공';
 }
 
 /**

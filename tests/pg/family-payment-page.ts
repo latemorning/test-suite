@@ -10,9 +10,16 @@ import {
 type FamilyPointCandidate = {
   index: number;
   availablePoint: number;
+  usePoint: number;
   pointCode: string;
   pointName: string;
   rowText: string;
+};
+
+type FamilyPointState = {
+  candidates: FamilyPointCandidate[];
+  totalAvailablePoint: number;
+  totalUsePoint: number;
 };
 
 /**
@@ -113,6 +120,65 @@ export class FamilyPaymentPage {
   }
 
   /**
+   * 자동 최대 사용포인트 상태에서 1,000P를 추가해 최대 할인권금액 오류 조건을 만든다.
+   */
+  async addOneThousandPointOverAutomaticMaximum(
+    additionalUsePointAmount: number,
+    minimumTotalAvailablePointAmount: number,
+    insufficientPointMessage: string,
+  ): Promise<void> {
+    const state = await this.getPointState();
+    if (state.totalAvailablePoint < minimumTotalAvailablePointAmount) {
+      throw new Error(insufficientPointMessage);
+    }
+
+    const candidate = state.candidates.find(
+      (item) => item.availablePoint - item.usePoint >= additionalUsePointAmount,
+    );
+    if (!candidate) {
+      throw new Error(
+        [
+          `Could not find a family point row that can add ${additionalUsePointAmount} points.`,
+          `Current total: ${state.totalUsePoint}`,
+          `Available total: ${state.totalAvailablePoint}`,
+          `URL: ${this.currentPage.url()}`,
+        ].join('\n'),
+      );
+    }
+
+    const input = this.currentPage
+      .locator('.pointGroup')
+      .nth(candidate.index)
+      .locator('input.pnt')
+      .first();
+    if (!(await isUsable(input, true))) {
+      throw new Error(
+        `Selected family point input is not editable. URL: ${this.currentPage.url()}`,
+      );
+    }
+
+    const expectedTotalUsePointAmount = state.totalUsePoint + additionalUsePointAmount;
+    await input.fill(String(candidate.usePoint + additionalUsePointAmount));
+    await input.dispatchEvent('input');
+    await input.dispatchEvent('change');
+    await input.dispatchEvent('focusout');
+
+    await expect
+      .poll(async () => (await this.getPointState()).totalUsePoint, {
+        message: `Expected family point use total to be ${expectedTotalUsePointAmount}.`,
+      })
+      .toBe(expectedTotalUsePointAmount);
+  }
+
+  /**
+   * 사용포인트 확인 버튼을 누른 뒤 레이어 팝업에 기대 오류 문구가 표시되는지 확인한다.
+   */
+  async confirmPointUseAndExpectLayerMessage(expectedPattern: RegExp): Promise<void> {
+    await this.currentPage.locator('#confirmBtn').click();
+    await this.expectLayerMessage(expectedPattern);
+  }
+
+  /**
    * 사용포인트 확인 후 결과 화면의 ret_code=00을 확인하고 가족 목록 화면으로 이동한다.
    */
   async confirmPointUseAndOpenFamilyList(): Promise<void> {
@@ -126,8 +192,10 @@ export class FamilyPaymentPage {
     });
 
     const resultConfirm = this.currentPage.locator('#btn_confirm').first();
+    const payRequestFailure = this.waitForPayRequestFailure();
     await Promise.all([
       this.currentPage.waitForURL(/\/phub\/fp\/familyList\.do/, { timeout: 20_000 }),
+      payRequestFailure,
       isUsable(resultConfirm).then((usable) =>
         usable ? resultConfirm.click() : clickButton(this.currentPage, /확인/),
       ),
@@ -165,12 +233,14 @@ export class FamilyPaymentPage {
       const groups = Array.from(document.querySelectorAll('.pointGroup'));
       const candidates = groups.map((group, index) => {
         const avlPoint = group.querySelector<HTMLElement>('.avlPnt');
+        const input = group.querySelector<HTMLInputElement>('input.pnt');
         const pointCode = group.querySelector<HTMLInputElement>('.pntCd');
         const pointName = group.querySelector<HTMLImageElement>('img');
 
         return {
           index,
           availablePoint: toNumber(avlPoint?.getAttribute('val') ?? avlPoint?.textContent),
+          usePoint: toNumber(input?.value),
           pointCode: pointCode?.value ?? '',
           pointName: pointName?.alt ?? '',
           rowText: (group.textContent ?? '').replace(/\s+/g, ' ').trim(),
@@ -200,9 +270,89 @@ export class FamilyPaymentPage {
       ].join('\n'),
     );
   }
+
+  private async expectLayerMessage(expectedPattern: RegExp): Promise<void> {
+    const layer = this.currentPage
+      .locator('#myPopup:visible, .popup:visible, .layer:visible, [role="dialog"]:visible')
+      .filter({ hasText: expectedPattern })
+      .first();
+
+    try {
+      await expect(layer).toBeVisible({ timeout: 20_000 });
+    } catch {
+      await expect(this.currentPage.locator('body')).toContainText(expectedPattern, {
+        timeout: 1000,
+      });
+    }
+  }
+
+  private async waitForPayRequestFailure(): Promise<void> {
+    try {
+      const response = await this.currentPage.waitForResponse(
+        (item) => item.url().includes('/pg/payRequest'),
+        { timeout: 5_000 },
+      );
+      const payload = await response.json().catch(() => null);
+      const retCode = getPayloadString(payload, 'ret_code');
+      if (retCode && retCode !== '00') {
+        throw new Error(
+          [
+            'Family list request failed after ret_code=00 result page.',
+            `ret_code: ${retCode}`,
+            `ret_msg: ${getPayloadString(payload, 'ret_msg') || '(empty)'}`,
+            `URL: ${this.currentPage.url()}`,
+          ].join('\n'),
+        );
+      }
+    } catch (error) {
+      if (error instanceof Error && /Timeout/.test(error.message)) return;
+      throw error;
+    }
+  }
+
+  private async getPointState(): Promise<FamilyPointState> {
+    const candidates = await this.currentPage.evaluate(() => {
+      const toNumber = (value: string | null | undefined): number => {
+        const parsed = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      return Array.from(document.querySelectorAll('.pointGroup')).map((group, index) => {
+        const avlPoint = group.querySelector<HTMLElement>('.avlPnt');
+        const input = group.querySelector<HTMLInputElement>('input.pnt');
+        const pointCode = group.querySelector<HTMLInputElement>('.pntCd');
+        const pointName = group.querySelector<HTMLImageElement>('img');
+
+        return {
+          index,
+          availablePoint: toNumber(avlPoint?.getAttribute('val') ?? avlPoint?.textContent),
+          usePoint: toNumber(input?.value),
+          pointCode: pointCode?.value ?? '',
+          pointName: pointName?.alt ?? '',
+          rowText: (group.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        };
+      });
+    });
+
+    return {
+      candidates,
+      totalAvailablePoint: candidates.reduce(
+        (total, candidate) => total + candidate.availablePoint,
+        0,
+      ),
+      totalUsePoint: candidates.reduce((total, candidate) => total + candidate.usePoint, 0),
+    };
+  }
 }
 
 function parsePointAmount(value: string): number {
   const parsed = Number(value.replace(/[^\d.-]/g, ''));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPayloadString(payload: unknown, fieldName: string): string {
+  if (!payload || typeof payload !== 'object') return '';
+
+  const value = (payload as Record<string, unknown>)[fieldName];
+  return value === undefined || value === null ? '' : String(value);
 }

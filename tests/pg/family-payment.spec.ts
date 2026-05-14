@@ -54,6 +54,38 @@ test.describe('PG local family payment flow', { tag: ['@family-payment', '@e2e']
         await familyPayment.expectPointUsePage();
       });
 
+      if (scenario.expectedOutcome === 'point-unit-error') {
+        await test.step('사용포인트 초기화', async () => {
+          await familyPayment.resetAllUsePoints();
+        });
+
+        await test.step(`사용가능 카드사에 ${scenario.invalidUsePointAmount} 포인트 입력`, async () => {
+          await familyPayment.enterFirstEligibleUsePoint(scenario.invalidUsePointAmount);
+        });
+
+        await test.step('1000P 단위 오류 레이어 확인', async () => {
+          await familyPayment.confirmPointUseAndExpectLayerMessage(scenario.expectedLayerPattern);
+        });
+
+        return;
+      }
+
+      if (scenario.expectedOutcome === 'maximum-amount-error') {
+        await test.step(`자동 설정 사용포인트에 ${scenario.additionalUsePointAmount} 포인트 추가`, async () => {
+          await familyPayment.addOneThousandPointOverAutomaticMaximum(
+            scenario.additionalUsePointAmount,
+            scenario.minimumTotalAvailablePointAmount,
+            scenario.insufficientPointMessage,
+          );
+        });
+
+        await test.step('최대 할인권금액 오류 레이어 확인', async () => {
+          await familyPayment.confirmPointUseAndExpectLayerMessage(scenario.expectedLayerPattern);
+        });
+
+        return;
+      }
+
       await test.step('사용포인트 초기화', async () => {
         await familyPayment.resetAllUsePoints();
       });

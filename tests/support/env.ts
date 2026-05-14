@@ -4,6 +4,7 @@ import path from 'node:path';
 const defaultPgFrontUrl = 'http://localhost/pg/pgfront.do';
 const defaultSuccessTextPattern = '포인트허브 결제 성공';
 const defaultLocalStackDir = '/Users/harry/docker/middleware-stack';
+const defaultFamilyPaymentAmounts = [900, 5000, 501000];
 const defaultFamilyPaymentSuccessTextPattern =
   '가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다';
 
@@ -23,8 +24,7 @@ export const env = {
   ]),
   cardPointAmount: getNumberEnv('CARD_POINT_AMOUNT', 5000),
   successTextPattern: getEnv('SUCCESS_TEXT_PATTERN', defaultSuccessTextPattern),
-  familyPaymentAmount: getNumberEnv('FAMILY_PAYMENT_AMOUNT', 5000),
-  familyPaymentUsePointAmount: getNumberEnv('FAMILY_PAYMENT_USE_POINT_AMOUNT', 5000),
+  familyPaymentAmounts: getFamilyPaymentAmounts(),
   familyPaymentShopName: getEnv('FAMILY_PAYMENT_SHOP_NAME', '세틀_패밀리박스'),
   familyPaymentShopCodes: getListEnv('FAMILY_PAYMENT_SHOP_CODES', [
     'PO0134',
@@ -80,6 +80,18 @@ function stripQuotes(value: string): string {
   return value;
 }
 
+function getFamilyPaymentAmounts(): number[] {
+  const amounts = getNumberListEnv('FAMILY_PAYMENT_AMOUNTS', []);
+  if (amounts.length > 0) return amounts;
+
+  // 기존 단일 금액 설정을 쓰는 로컬 .env가 있으면 그 값을 우선해 호환성을 유지한다.
+  if (process.env.FAMILY_PAYMENT_AMOUNT?.trim()) {
+    return [getNumberEnv('FAMILY_PAYMENT_AMOUNT', 5000)];
+  }
+
+  return defaultFamilyPaymentAmounts;
+}
+
 function getEnv(name: string, fallback: string): string {
   const value = process.env[name];
   return value && value.trim() ? value.trim() : fallback;
@@ -95,6 +107,20 @@ function getListEnv(name: string, fallback: string[]): string[] {
     .filter(Boolean);
 
   return parsed.length ? parsed : fallback;
+}
+
+function getNumberListEnv(name: string, fallback: number[]): number[] {
+  const items = getListEnv(name, []);
+  if (!items.length) return fallback;
+
+  return items.map((item) => {
+    const parsed = Number(item);
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`${name} must contain finite numbers. Received: ${item}`);
+    }
+
+    return parsed;
+  });
 }
 
 function getNumberEnv(name: string, fallback: number): number {

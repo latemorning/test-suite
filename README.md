@@ -59,8 +59,7 @@ PG_FRONT_URL=http://localhost/pg/pgfront.do
 PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터
 CARD_POINT_AMOUNT=5000
 SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
-FAMILY_PAYMENT_AMOUNT=5000
-FAMILY_PAYMENT_USE_POINT_AMOUNT=5000
+FAMILY_PAYMENT_AMOUNTS=900,5000,501000
 FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
 FAMILY_PAYMENT_SHOP_CODES=PO0134,PO0018,PO0017,PO0016,PO0015,PO0011
 FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN=가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다
@@ -81,5 +80,6 @@ HEADED_SLOW_MO_MS=250
 
 패밀리포인트 할인권 요청은 `PC전용 Submit` 이후 팝업 흐름이 일반 결제와 달라 [tests/pg/family-payment.spec.ts](tests/pg/family-payment.spec.ts)와 [tests/pg/family-payment-page.ts](tests/pg/family-payment-page.ts)에서 별도로 실행합니다.
 `FAMILY_PAYMENT_SHOP_CODES`에 쉼표로 구분한 값을 넣으면 각 값마다 별도 테스트가 등록됩니다. 이 값은 `#shop_sel`의 option value 기준이며, 선택 후 실제 요청용 `shop_cd`는 화면의 `#shopCd`에 반영됩니다.
+`FAMILY_PAYMENT_AMOUNTS`는 각 패밀리 가맹점에 곱해지는 금액 목록입니다. 기본값은 `900,5000,501000`이며, `900`은 1,000P 단위 오류, `501000`은 최대 할인권금액 오류가 정상 결과입니다.
 
 결제 플로우와 다른 화면 영역의 테스트는 별도 spec으로 분리합니다. 현재 테스트 유형은 `smoke`, `payment`, `family-payment`, `api-terms`, `api-point`로 나뉘며, `PG 연동 API 테스트`의 약관 조회/동의 흐름은 [tests/pg/api-terms.spec.ts](tests/pg/api-terms.spec.ts)에 있고 약관 성공 후 포인트 API 조회/결제 흐름은 [tests/pg/api-point-payment.spec.ts](tests/pg/api-point-payment.spec.ts)에 있습니다.
