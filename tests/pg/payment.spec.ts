@@ -25,6 +25,10 @@ test.describe('PG local payment flow', { tag: ['@payment', '@e2e'] }, () => {
         });
       }
 
+      await test.step(`결제금액 설정: ${scenario.paymentAmount}`, async () => {
+        await pg.setPaymentAmount(scenario.paymentAmount);
+      });
+
       await test.step('암호화 버튼 클릭', async () => {
         await pg.encrypt();
       });

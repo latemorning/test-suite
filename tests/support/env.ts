@@ -4,6 +4,7 @@ import path from 'node:path';
 const defaultPgFrontUrl = 'http://localhost/pg/pgfront.do';
 const defaultSuccessTextPattern = '포인트허브 결제 성공';
 const defaultLocalStackDir = '/Users/harry/docker/middleware-stack';
+const defaultCardPointAmounts = [5000];
 const defaultFamilyPaymentAmounts = [900, 5000, 501000];
 const defaultFamilyPaymentSuccessTextPattern =
   '가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다';
@@ -22,7 +23,7 @@ export const env = {
     '메크로스',
     '페이레터',
   ]),
-  cardPointAmount: getNumberEnv('CARD_POINT_AMOUNT', 5000),
+  cardPointAmounts: getCardPointAmounts(),
   successTextPattern: getEnv('SUCCESS_TEXT_PATTERN', defaultSuccessTextPattern),
   familyPaymentAmounts: getFamilyPaymentAmounts(),
   familyPaymentShopName: getEnv('FAMILY_PAYMENT_SHOP_NAME', '세틀_패밀리박스'),
@@ -78,6 +79,18 @@ function stripQuotes(value: string): string {
   }
 
   return value;
+}
+
+function getCardPointAmounts(): number[] {
+  const amounts = getNumberListEnv('CARD_POINT_AMOUNTS', [5000, 10000, 20000]);
+  if (amounts.length > 0) return amounts;
+
+  // 기존 단일 금액 설정을 쓰는 로컬 .env가 있으면 그 값을 우선해 호환성을 유지한다.
+  if (process.env.CARD_POINT_AMOUNT?.trim()) {
+    return [getNumberEnv('CARD_POINT_AMOUNT', defaultCardPointAmounts[0])];
+  }
+
+  return defaultCardPointAmounts;
 }
 
 function getFamilyPaymentAmounts(): number[] {

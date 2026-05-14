@@ -28,7 +28,7 @@ v1에서는 GitHub Actions, Slack 알림, 운영 환경 테스트, 외부 side e
 ```env
 PG_FRONT_URL=http://localhost/pg/pgfront.do
 PAYMENT_PG_PROVIDERS=세틀뱅크,메크로스,페이레터
-CARD_POINT_AMOUNT=5000
+CARD_POINT_AMOUNTS=5000
 SUCCESS_TEXT_PATTERN=포인트허브 결제 성공
 FAMILY_PAYMENT_AMOUNTS=900,5000,501000
 FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
@@ -58,7 +58,8 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 6. `PC전용 Submit` 버튼 클릭
 7. 약관 화면에서 `전체 약관 동의 후 포인트조회하기(선택포함)` 또는 같은 의미의 본인인증 진입 버튼 클릭
 8. 가상 인증 팝업에서 필요 시 테스트 이름을 입력한 뒤 `전송` 버튼 클릭
-9. 카드사별 목록에서 전환포인트가 `5000`이 되도록 `사용포인트` 입력
+9. 카드사별 목록에서 전환포인트가 시나리오 금액이 되도록 `사용포인트` 입력
+   - 기본 시나리오 금액은 `5000`이다.
    - 현대카드는 사용포인트와 전환포인트 비율이 `1.5:1`이므로 전환포인트 목표값을 기준으로 사용포인트 입력값을 환산한다.
 10. `결제` 또는 `전환하기` 버튼 클릭
 11. 최종 `확인` 버튼 클릭
@@ -186,6 +187,7 @@ tests/
 export const paymentScenarios = [
   {
     name: '기본 카드포인트 5000 결제',
+    paymentAmount: 5000,
     convertedPointAmount: 5000,
     pgProvider: { name: '세틀뱅크', code: 'PG0001' },
     expectedSuccessPattern: /포인트허브 결제 성공/,
@@ -209,12 +211,13 @@ export const familyPaymentScenarios = [
 ];
 ```
 
-나중에 금액이나 설정만 다른 시나리오는 `scenarios.ts`에 항목을 하나 더 추가한다. 패밀리포인트에서 `FAMILY_PAYMENT_SHOP_CODES`를 지정하면 각 값과 `FAMILY_PAYMENT_AMOUNTS`의 각 금액이 곱해져 `familyPaymentScenarios` 항목이 만들어지고 테스트가 별도로 등록된다.
+나중에 금액이나 설정만 다른 일반 결제 시나리오는 `CARD_POINT_AMOUNTS`에 쉼표로 구분한 금액 목록을 지정하거나 `scenarios.ts`에 항목을 하나 더 추가한다. `CARD_POINT_AMOUNTS`를 지정하면 각 PG사와 각 금액이 곱해져 `paymentScenarios` 항목이 만들어지고 테스트가 별도로 등록된다. 기존 단일 금액 설정인 `CARD_POINT_AMOUNT`만 있으면 그 값을 단일 금액 목록으로 해석해 호환성을 유지한다. 패밀리포인트에서 `FAMILY_PAYMENT_SHOP_CODES`를 지정하면 각 값과 `FAMILY_PAYMENT_AMOUNTS`의 각 금액이 곱해져 `familyPaymentScenarios` 항목이 만들어지고 테스트가 별도로 등록된다.
 
 ```ts
 {
   name: '메크로스 카드포인트 10000 결제',
   pgProvider: { name: '메크로스', code: 'PG0004' },
+  paymentAmount: 10000,
   convertedPointAmount: 10000,
   expectedSuccessPattern: /포인트허브 결제 성공/,
 }
@@ -231,6 +234,7 @@ for (const scenario of paymentScenarios) {
     await pg.goto();
     await pg.selectPgProvider(scenario.pgProvider);
     if (scenario.shopName) await pg.selectShop(scenario.shopName);
+    await pg.setPaymentAmount(scenario.paymentAmount);
     await pg.encrypt();
     cardPayment = new CardPointPaymentPage(await pg.submitTest());
     await cardPayment.lookupTerms();
@@ -260,13 +264,21 @@ for (const scenario of paymentScenarios) {
 ### Payment Success E2E
 
 - 결제 시나리오의 PG사 탭과 필요 시 가맹점을 선택한 뒤 `암호화`를 실행한다.
+- 결제 시나리오 금액이 기본값과 다르면 암호화 전에 `pay_amt`를 시나리오 금액으로 설정한다.
 - `PC전용 Submit`으로 결제 또는 약관 흐름을 시작한다.
 - `/pg/identification.do` 화면에서 전체 약관 동의 후 포인트 조회를 실행한다.
 - 가상 인증 팝업에서 `전송`만 클릭해 인증 완료 상태로 진행한다.
-- 카드사별 목록에서 전환포인트가 `5000`이 되도록 `사용포인트` 입력란을 채운다.
+- 카드사별 목록에서 전환포인트가 시나리오 금액이 되도록 `사용포인트` 입력란을 채운다.
 - 현대카드는 전환비율이 `1.5:1`이므로 전환포인트 `5000P`를 맞추려면 사용포인트 `7500M`을 입력한다.
 - 결제 후 최종 확인을 클릭한다.
 - alert 창의 `포인트허브 결제 성공` 문구가 확인되면 통과로 본다.
+
+### Payment Amount Matrix
+
+- 일반 카드포인트 결제는 기본적으로 `CARD_POINT_AMOUNTS=5000`의 금액 목록을 모든 `PAYMENT_PG_PROVIDERS`에 대해 실행한다.
+- `CARD_POINT_AMOUNTS` 값은 사용포인트 입력값이 아니라 결제금액이자 전환포인트 목표값으로 해석한다.
+- 기존 로컬 `.env`에 `CARD_POINT_AMOUNT`만 있으면 그 값을 단일 금액 목록으로 사용한다.
+- 각 금액 시나리오는 암호화 전에 `pay_amt`를 해당 금액으로 설정하고, 카드포인트 사용 화면에서는 같은 전환포인트 목표값을 입력한다.
 
 ### Family Payment Success E2E
 
@@ -332,13 +344,13 @@ for (const scenario of paymentScenarios) {
 - 패밀리포인트 `501000` 케이스는 총 보유 전환포인트가 `501000` 이상이어야 하며, 부족하면 `501000포인트 미만 포인트 보유` 메시지로 실패 처리한다.
 - 패밀리포인트 `501000` 케이스는 자동 설정된 전환포인트에 `1000`포인트만 추가한 뒤 `할인권금액은 최대 500,000원까지 가능합니다.` 레이어 문구를 정상 결과로 본다.
 - 결제수단은 화면 기본값을 변경하지 않는다.
-- 카드포인트 전환포인트 목표값은 기본 `5000`이다.
+- 카드포인트 전환포인트 목표값 목록은 기본 `5000`이다.
 - API 포인트 결제 입력값은 기본 `ttl_pnt=1000`, `ttl_pay_amt=5000`, `ttl_pnt_amt=1000`, `shop_cmsn_rate=10`, 카드사 `KB (KB국민카드)`다. 현대카드 선택 시 `ttl_pnt`와 카드 사용포인트는 전환포인트 목표값 기준으로 환산한다.
 - 성공 판정은 alert 창의 `포인트허브 결제 성공` 문구를 기준으로 한다.
 - API 약관 동의 성공 판정은 alert 창의 `약관 동의가 완료되었습니다.` 문구를 기준으로 한다.
 - API 포인트 조회/결제 성공 판정은 `#api_result` 결과 영역의 `포인트 조회 성공`, `포인트 결제 성공` 문구를 기준으로 한다.
 - 실패해도 테스트 데이터 정리는 필요 없다.
-- 결제 플로우는 PG사별 기본 카드포인트 결제 시나리오를 유지하고, 금액이나 PG사 추가는 이후 `scenarios.ts` 또는 `PAYMENT_PG_PROVIDERS`에 반영한다.
+- 결제 플로우는 PG사별 기본 카드포인트 결제 시나리오를 유지하고, 금액이나 PG사 추가는 이후 `CARD_POINT_AMOUNTS`, `scenarios.ts` 또는 `PAYMENT_PG_PROVIDERS`에 반영한다.
 - PG 연동 API 테스트처럼 완전히 다른 영역은 별도 spec 파일로 추가한다.
 
 ## Explicitly Excluded From V1
@@ -347,5 +359,5 @@ for (const scenario of paymentScenarios) {
 - Slack 또는 메신저 알림
 - 운영 환경 대상 테스트
 - API 직접 호출 우회 테스트
-- 여러 PG사나 결제수단에 대한 매트릭스 테스트
+- 결제수단 확장 매트릭스 테스트
 - 테스트 데이터 정리 자동화

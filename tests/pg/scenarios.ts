@@ -14,6 +14,7 @@ export type PaymentScenario = {
   name: string;
   pgProvider: PaymentPgProvider;
   shopName?: string;
+  paymentAmount: number;
   convertedPointAmount: number;
   expectedSuccessPattern: RegExp;
 };
@@ -91,25 +92,28 @@ const familyPaymentMaxAmountErrorPattern =
 /**
  * v1 결제 플로우에서 지원하는 PG사별 카드포인트 결제 시나리오다.
  */
-export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.map((providerName) => {
-  const pgProvider = paymentPgProvidersByName[providerName];
-  if (!pgProvider) {
-    throw new Error(
-      [
-        `Unsupported PAYMENT_PG_PROVIDERS entry: ${providerName}`,
-        `Supported providers: ${Object.keys(paymentPgProvidersByName).join(', ')}`,
-      ].join('\n'),
-    );
-  }
+export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.flatMap(
+  (providerName) => {
+    const pgProvider = paymentPgProvidersByName[providerName];
+    if (!pgProvider) {
+      throw new Error(
+        [
+          `Unsupported PAYMENT_PG_PROVIDERS entry: ${providerName}`,
+          `Supported providers: ${Object.keys(paymentPgProvidersByName).join(', ')}`,
+        ].join('\n'),
+      );
+    }
 
-  return {
-    name: `${pgProvider.name} 카드포인트 ${env.cardPointAmount} 결제`,
-    pgProvider,
-    shopName: pgProvider.shopName,
-    convertedPointAmount: env.cardPointAmount,
-    expectedSuccessPattern: new RegExp(env.successTextPattern),
-  };
-});
+    return env.cardPointAmounts.map((paymentAmount) => ({
+      name: `${pgProvider.name} 카드포인트 ${paymentAmount} 결제`,
+      pgProvider,
+      shopName: pgProvider.shopName,
+      paymentAmount,
+      convertedPointAmount: paymentAmount,
+      expectedSuccessPattern: new RegExp(env.successTextPattern),
+    }));
+  },
+);
 
 /**
  * 일반 카드포인트 결제와 성공 화면이 다른 패밀리포인트 할인권 요청 시나리오다.
