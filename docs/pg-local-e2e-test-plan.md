@@ -2,13 +2,13 @@
 
 ## Summary
 
-이 프로젝트는 로컬에 실행 중인 PG 테스트 페이지의 결제 플로우와 PG 연동 API 테스트 영역을 자동화하기 위한 테스트 프로젝트다.
+이 프로젝트는 로컬에 실행 중인 PG 테스트 페이지의 결제 플로우와 PG 연동 API 직접 호출 흐름을 자동화하기 위한 테스트 프로젝트다.
 
 - 테스트 대상 URL: `http://localhost/pg/pgfront.do`
 - 기본 스택: TypeScript + Playwright
 - 실행 대상: 로컬 환경
-- 테스트 방식: 실제 브라우저 E2E
-- v1 목표: 핵심 결제 플로우, API 약관 조회/동의 흐름, API 포인트 조회/결제 흐름이 정상 완료되는지 회귀 테스트로 검증
+- 테스트 방식: 실제 브라우저 E2E와 Playwright `request` 기반 API 직접 호출 테스트
+- v1 목표: 핵심 결제 플로우, API 약관 조회/동의 직접 호출 흐름, API 포인트 조회/사용/취소 직접 호출 흐름이 정상 완료되는지 회귀 테스트로 검증
 
 v1에서는 GitHub Actions, Slack 알림, 운영 환경 테스트, 외부 side effect 검증은 포함하지 않는다.
 
@@ -34,11 +34,18 @@ FAMILY_PAYMENT_AMOUNTS=900,5000,501000
 FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
 FAMILY_PAYMENT_SHOP_CODES=PO0134,PO0018,PO0017,PO0016,PO0015,PO0011
 FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN=가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다
-API_POINT_TTL_PNT=1000
-API_POINT_TTL_PAY_AMT=5000
-API_POINT_TTL_PNT_AMT=1000
-API_POINT_CARD_PROVIDER=KB
-API_POINT_SHOP_CMSN_RATE=10
+PG_API_BASE_URL=http://localhost
+PG_API_PG_CD=PG0006
+PG_API_SHOP_CD=API_ph_CU
+PG_API_SHOP_NAME=API_pointhub용 CU
+PG_API_SHOP_PAY_METHOD=CU
+PG_API_GOODS_NAME=ApiTest상품
+PG_API_POINT_TARGET_AMOUNT=4000
+PG_API_SHOP_CMSN_RATE=0
+PG_API_AUTHORIZATION=dSgVkYp3s6v9y$B&E)H@McQeThWmZq4t7w!z%C*F-JaNdRgUjXn2r5u8x/A?D(G+
+PG_API_CUST_CI=p/8cpnfrPfHF8JDF61xaIyHskFbNrbXLJuyVEJwGtXDOJ2bznkmZDSh8+HhHIwZvxPXpVjMYFbssO0WQxrOoDT68YwoWJ7gg6w3d5WrIswbZ2bhvF336qhjN3EKIKlh2
+PG_API_CUST_NAME=veMvOJTU0L98Zq20ceDJJA==
+PG_API_CUST_CTN=0Lamm89+8wGhhHvtMMzuIA==
 HEADED_SLOW_MO_MS=250
 ```
 
@@ -94,47 +101,58 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 
 ## PG API Terms Flow
 
-결제 화면과 별개로, 같은 시작 URL의 `PG 연동 API 테스트` 영역에서 약관 API 흐름을 검증한다.
+결제 화면과 별개로, Playwright `request` fixture로 로컬 PG API를 직접 호출해 약관 API 흐름을 검증한다. 기준 시나리오는 `postmanscript2`의 Postman 컬렉션 로컬 흐름이다.
 
-1. `http://localhost/pg/pgfront.do` 접속
-2. `PG 연동 API 테스트` 영역으로 스크롤
-3. 약관 API 탭이 보이는지 확인
-4. 공통 파라미터 입력
-   - PG 코드: `PG0004 (메크로스)`
-   - 가맹점: `네이버페이쿠폰 10 부담`
-   - Authorization: `PG0004 메크로` 인증키
-   - `pg_cust_ci`: `VWQ0XWXdhh3X9+z1h8+//wGfWRi+HP8zbD9R8B7LsL8kxgTWmWnoPjMvm1pf7QktPH7/Bnu8yS/Wlaw47TZn6y3yv8b1UFqmNerdTYDmZeT++2geSd6AavyG4oJSnTYZ`
-5. `약관 목록 조회 (/api/v1/r/terms)` 버튼 클릭
-6. 하단 약관 목록에 다음 약관 텍스트가 출력되는지 확인
-   - `포인트다모아(포인트허브) 약관 (필수)약관 보기`
-   - `포인트다모아 개인정보 처리 방침 (필수)약관 보기`
-   - `개인정보 수집/이용 동의 (필수)약관 보기`
-   - `본인은 주식회사 케이티가 다음의 목적을 위하여 해당 정보를 제공함에 동의합니다. (필수)`
-   - `포인트 사용에 동의하시겠습니까? (필수)`
-7. 약관 동의 추가 정보 입력
-   - `pg_cust_name`: `iplN7+Z1mztKbluon55Olw==`
-   - `pg_cust_ctn`: `4N16Uy/P/56ultYiHOa1eA==`
+1. 테스트마다 `AT_PG_TR_NO_` 접두어와 timestamp, 짧은 suffix로 `pg_tr_no`를 생성한다.
+   - 전체 길이는 PG API 제약에 맞춰 30자 이하로 유지한다.
+2. `POST /api/v1/r/terms`를 호출한다.
+   - `pg_tr_no`: 생성한 거래번호
+   - `pg_cd`: `PG0006`
+   - `shop_cd`: `API_ph_CU`
+   - `pg_cust_ci`: `postmanscript2` 로컬 기준 암호화 고객 CI
+   - Header `Authorization`: `postmanscript2/local.postman_environment.json`의 enabled `header_auth`
+3. 응답의 `ret_code=00`, `phub_tr_no`, `pg_tr_no`, `cls_list`를 검증한다.
+4. 필수 약관 ID와 필수 여부가 응답에 포함됐는지 확인한다.
+   - `PHA1A`, `PHA5A`, `a1A`, `a2A`, `a3A`
+   - 각 항목은 `mdt_yn=Y`여야 한다.
+5. `POST /api/v1/c/terms`를 호출한다.
+   - `phub_tr_no`: 약관 조회 응답값
+   - `pg_tr_no`, `pg_cd`, `shop_cd`, `pg_cust_ci`: 약관 조회와 같은 값
+   - `pg_cust_name`: `postmanscript2` 로컬 기준 암호화 고객명
+   - `pg_cust_ctn`: `postmanscript2` 로컬 기준 암호화 전화번호
    - `is_mdt_all`: `Y`
-8. `약관 동의 (/api/v1/c/terms)` 버튼 클릭
-9. alert 창의 `약관 동의가 완료되었습니다.` 문구 확인
+6. 응답의 `ret_code=00`, 동일 `phub_tr_no`, 동일 `pg_tr_no`를 검증한다.
 
 ## PG API Point Payment Flow
 
-`PG 연동 API 테스트` 영역에서 약관 API 흐름이 성공한 뒤 같은 공통 파라미터와 거래번호로 포인트 API 조회/결제를 검증한다.
+`PG API Terms Flow`가 성공한 거래번호와 `phub_tr_no`로 포인트 조회, 포인트 사용, 포인트 사용 취소 API를 직접 호출한다.
 
-1. `PG API Terms Flow`의 약관 동의 성공 alert까지 완료
-2. 우측 `포인트 API` 버튼 클릭
-3. 포인트 API 파라미터 입력
-   - `ttl_pnt`: 전환포인트 기준으로 환산한 사용포인트. 기본 카드사는 `1000`, 현대카드는 전환포인트 `1000` 기준 `1500`
-   - `ttl_pay_amt`: `5000`
-   - `ttl_pnt_amt`: `1000`
-   - `shop_cmsn_rate`: `10`
-4. 카드 포인트 입력 영역에서 `KB (KB국민카드)` 선택
-5. 카드 전환포인트가 `1000`이 되도록 카드 사용 포인트와 전환율 입력
-6. `포인트 조회 (/api/v1/r/pnt)` 버튼 클릭
-7. 결과 영역에 `포인트 조회 성공`이 출력되고 `포인트 결제` 버튼이 활성화되는지 확인
-8. `포인트 결제 (/api/v1/c/pnt)` 버튼 클릭
-9. 결과 영역에 `포인트 결제 성공`이 출력되는지 확인
+1. `PG API Terms Flow`의 약관 조회와 동의를 먼저 실행한다.
+2. `POST /api/v1/r/pnt`를 호출한다.
+   - `pg_tr_no`, `pg_cd`, `phub_tr_no`, `shop_cd`, `pg_cust_ci`: 약관 흐름과 같은 값
+   - `shop_name`: `API_pointhub용 CU`
+   - `goods_name`: `ApiTest상품`
+3. 응답의 `ret_code=00`, 동일 `pg_tr_no`, 동일 `phub_tr_no`, `prvdr_list`를 검증한다.
+4. `prvdr_list`에서 목표 전환금액 `PG_API_POINT_TARGET_AMOUNT`를 사용할 수 있는 첫 카드사를 자동 선택한다.
+   - 선택 기준은 `pnt_exch_rate`, `min_avl_pnt`, `max_avl_pnt`, `deal_unit`, `crnt_point`를 모두 만족하는 것이다.
+   - `point_amt`가 목표 전환금액이 되도록 `point`를 역산한다.
+5. `check_hash`는 Postman과 동일하게 `SHA256(pg_tr_no + ttl_pnt_amt + shop_cd + phub_tr_no)`로 생성한다.
+6. `POST /api/v1/c/pnt`를 호출한다.
+   - `shop_pay_method`: `CU`
+   - `shop_cmsn_rate`: `0`
+   - `prvdr_list`: 자동 선택한 카드사 1개
+   - `ttl_pnt`: 선택 카드사의 사용포인트
+   - `ttl_pay_amt`: 목표 전환금액
+   - `ttl_pnt_amt`: 목표 전환금액
+   - `ttl_rmnd_amt`: 결제금액에서 고객부담수수료 적용 후 할인액을 뺀 값
+   - `ttl_cprt_amt`: 고객부담수수료를 반영한 결제할인액
+7. 응답의 `ret_code=00`, 동일 `pg_tr_no`, 동일 `phub_tr_no`, 사용금액 합계를 검증한다.
+8. `POST /api/v1/d/pnt`로 사용 취소를 호출한다.
+   - `ori_pg_tr_no`: 포인트 사용과 같은 `pg_tr_no`
+   - `tr_div`: `CA`
+   - `points`: 포인트 사용 요청의 `ttl_pnt_amt`
+   - `check_hash`: 포인트 사용 요청과 같은 값
+9. 응답의 `ret_code=00`과 취소 금액을 검증한다.
 
 ## Selector Policy
 
@@ -153,8 +171,7 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 - `약관조회하기`, `전송`, `결제`, `확인` 버튼명은 화면 내 중복되지 않는다는 전제로 role 기반 selector를 우선한다.
 - 패밀리포인트 사용 화면은 `.pointGroup` 단위로 카드사 행을 순회하고, `.initBtn`, `.avlPnt`, `input.pnt`, `.cprtAmt`, `.pntExchRate`, `#confirmBtn`을 우선 사용한다.
 - 패밀리 결과/요청 화면은 `#btn_confirm`, `#btnReqAll`, `#myPopup`과 최종 요청 메시지 텍스트를 우선 사용한다.
-- API 테스트 영역은 명시적인 `id`가 제공되므로 `#api-test`, `#api_pg_cd`, `#api_shop_sel`, `#api_authorization`, `#api_pg_cust_ci` 같은 안정적인 DOM id를 우선 사용한다.
-- 포인트 API 영역은 `data-api-tab="point"`, `.api-section-point`, `#api_ttl_pnt`, `#api_ttl_pay_amt`, `#api_ttl_pnt_amt`, `#api_card_point_list`, `#api_point_pay_btn`, `#api_result` 같은 안정적인 DOM id와 class를 우선 사용한다.
+- API 직접 호출 테스트는 화면 selector를 사용하지 않고 Playwright `request` fixture와 JSON 응답 검증만 사용한다.
 
 ## Test Scenarios
 
@@ -170,26 +187,24 @@ tests/
     api-point-payment.spec.ts
     family-payment.spec.ts
     scenarios.ts
+    pg-api-client.ts
     pg-page.ts
     card-point-payment-page.ts
     family-payment-page.ts
-    api-terms-page.ts
-    api-point-page.ts
     page-actions.ts
     assertions.ts
 ```
 
 - `payment.spec.ts`: 시나리오 목록을 순회하며 실제 테스트를 실행한다.
 - `family-payment.spec.ts`: 패밀리포인트 할인권 요청 전용 흐름을 실행한다.
-- `api-terms.spec.ts`: PG 연동 API 테스트 영역의 약관 조회/동의 흐름을 실행한다.
-- `api-point-payment.spec.ts`: 약관 API 성공 후 포인트 API 조회/결제 흐름을 실행한다.
+- `api-terms.spec.ts`: Playwright `request` fixture로 약관 조회/동의 API 흐름을 실행한다.
+- `api-point-payment.spec.ts`: 약관 API 성공 후 포인트 조회/사용/취소 API 흐름을 실행한다.
 - `scenarios.ts`: 금액, PG 설정, 결제수단, 기대 성공 패턴 같은 시나리오 데이터를 정의한다.
+- `pg-api-client.ts`: PG API 직접 호출, 거래번호 생성, 포인트 사용 요청 계산, 공통 오류 메시지 처리를 제공한다.
 - `pg-page.ts`: 페이지 접속, PG/가맹점 선택, 암호화, `PC전용 Submit`까지의 공통 시작 흐름을 제공한다.
 - `card-point-payment-page.ts`: `PC전용 Submit` 이후 일반 카드포인트 결제 팝업 흐름을 제공한다.
 - `settle-combined-payment-page.ts`: `세틀_복합결제(소진형)`의 약관 전체동의, 본인인증, 복합결제 포인트 입력 흐름을 제공한다.
 - `family-payment-page.ts`: `PC전용 Submit` 이후 패밀리포인트 사용, 결과 확인, 일괄요청 흐름을 제공한다.
-- `api-terms-page.ts`: API 테스트 영역 진입, 공통 파라미터 입력, 약관 조회, 약관 동의 조작 함수를 제공한다.
-- `api-point-page.ts`: 포인트 API 탭 진입, 포인트 금액/카드 포인트 입력, 포인트 조회, 포인트 결제 조작 함수를 제공한다.
 - `page-actions.ts`: 버튼 탐색, 팝업 전환, 인증 팝업 처리 같은 저수준 화면 조작 유틸을 제공한다.
 - `assertions.ts`: 성공 문구, alert, 팝업, 네트워크 응답 등 성공/실패 판정 로직을 제공한다.
 
@@ -319,25 +334,26 @@ for (const scenario of paymentScenarios) {
 
 ### API Terms Inquiry And Agreement
 
-- PG 연동 API 테스트 영역에서 약관 API 탭을 사용한다.
-- PG 코드, 가맹점, Authorization, `pg_cust_ci`를 지정값으로 입력한다.
-- 약관 목록 조회 후 필수 약관 5개가 화면에 표시되는지 확인한다.
-- `pg_cust_name`, `pg_cust_ctn`, `is_mdt_all`을 입력하고 약관 동의를 실행한다.
-- alert 창의 `약관 동의가 완료되었습니다.` 문구가 확인되면 통과로 본다.
+- Playwright `request` fixture로 `/api/v1/r/terms`와 `/api/v1/c/terms`를 직접 호출한다.
+- PG 코드, 가맹점, Authorization, `pg_cust_ci`는 `PG_API_*` 환경값을 사용한다.
+- 약관 목록 조회 후 `ret_code=00`, `phub_tr_no`, `pg_tr_no`, `cls_list`를 확인한다.
+- 필수 약관 ID `PHA1A`, `PHA5A`, `a1A`, `a2A`, `a3A`가 모두 `mdt_yn=Y`로 포함됐는지 확인한다.
+- 약관 동의 응답의 `ret_code=00`, 동일 `pg_tr_no`, 동일 `phub_tr_no`가 확인되면 통과로 본다.
 
 ### API Point Inquiry And Payment
 
-- 약관 API 조회/동의가 성공한 같은 페이지에서 포인트 API 탭을 사용한다.
-- `ttl_pnt`, `ttl_pay_amt`, `ttl_pnt_amt`를 지정값으로 입력한다.
-- 카드 포인트 입력 영역에 카드사, 전환포인트 기준 사용 포인트, 전환율을 입력한다.
-- 포인트 조회 성공 후 결제 버튼이 활성화되는지 확인한다.
-- 포인트 결제 후 결과 영역의 `포인트 결제 성공` 문구가 확인되면 통과로 본다.
+- 약관 API 조회/동의가 성공한 같은 거래번호로 `/api/v1/r/pnt`를 직접 호출한다.
+- 포인트 조회 응답의 `prvdr_list`에서 목표 전환금액을 사용할 수 있는 첫 카드사를 자동 선택한다.
+- 선택 카드사 1개로 `/api/v1/c/pnt`를 직접 호출하고 `ret_code=00`, 금액 합계, 거래번호를 확인한다.
+- 포인트 사용 성공 후 `/api/v1/d/pnt`를 직접 호출해 사용 취소까지 확인한다.
 
 ### Failure Diagnostics
 
 - 각 주요 단계는 Playwright `test.step`으로 감싼다.
-- 실패 시 현재 URL, 열린 페이지 수, 주요 visible text 일부를 확인할 수 있게 한다.
-- 실패 artifact로 trace, screenshot, video, HTML report를 남긴다.
+- 브라우저 E2E 실패 시 현재 URL, 열린 페이지 수, 주요 visible text 일부를 확인할 수 있게 한다.
+- API 직접 호출 실패 시 HTTP status, 요청 path, 요청 body 핵심값, 응답 body가 오류 메시지에 포함되게 한다.
+- 브라우저 E2E 실패 artifact로 trace, screenshot, video, HTML report를 남긴다.
+- API 직접 호출 테스트는 브라우저를 열지 않으므로 screenshot과 video 증적은 기대하지 않는다.
 
 ## Assumptions
 
@@ -363,19 +379,19 @@ for (const scenario of paymentScenarios) {
 - 패밀리포인트 `501000` 케이스는 자동 설정된 전환포인트에 `1000`포인트만 추가한 뒤 `할인권금액은 최대 500,000원까지 가능합니다.` 레이어 문구를 정상 결과로 본다.
 - 결제수단은 화면 기본값을 변경하지 않는다.
 - 카드포인트 전환포인트 목표값 목록은 기본 `5000`이다.
-- API 포인트 결제 입력값은 기본 `ttl_pnt=1000`, `ttl_pay_amt=5000`, `ttl_pnt_amt=1000`, `shop_cmsn_rate=10`, 카드사 `KB (KB국민카드)`다. 현대카드 선택 시 `ttl_pnt`와 카드 사용포인트는 전환포인트 목표값 기준으로 환산한다.
+- API 직접 호출 기본값은 `PG_API_BASE_URL=http://localhost`, `PG_API_PG_CD=PG0006`, `PG_API_SHOP_CD=API_ph_CU`, `PG_API_SHOP_PAY_METHOD=CU`, `PG_API_POINT_TARGET_AMOUNT=4000`, `PG_API_SHOP_CMSN_RATE=0`이다.
+- API 포인트 결제는 포인트 조회 응답에서 목표 전환금액을 사용할 수 있는 카드사를 자동 선택한다.
 - 성공 판정은 alert 창의 `포인트허브 결제 성공` 문구를 기준으로 한다.
-- API 약관 동의 성공 판정은 alert 창의 `약관 동의가 완료되었습니다.` 문구를 기준으로 한다.
-- API 포인트 조회/결제 성공 판정은 `#api_result` 결과 영역의 `포인트 조회 성공`, `포인트 결제 성공` 문구를 기준으로 한다.
+- API 약관 동의 성공 판정은 API 응답 `ret_code=00`과 거래번호 일치 여부를 기준으로 한다.
+- API 포인트 조회/사용/취소 성공 판정은 API 응답 `ret_code=00`, 거래번호 일치 여부, 금액 합계를 기준으로 한다.
 - 실패해도 테스트 데이터 정리는 필요 없다.
 - 결제 플로우는 PG사별 기본 카드포인트 결제 시나리오를 유지하고, 금액이나 PG사 추가는 이후 `CARD_POINT_AMOUNTS`, `scenarios.ts` 또는 `PAYMENT_PG_PROVIDERS`에 반영한다.
-- PG 연동 API 테스트처럼 완전히 다른 영역은 별도 spec 파일로 추가한다.
+- PG 연동 API처럼 완전히 다른 흐름은 별도 spec 파일로 추가한다.
 
 ## Explicitly Excluded From V1
 
 - GitHub Actions 실행 구성
 - Slack 또는 메신저 알림
 - 운영 환경 대상 테스트
-- API 직접 호출 우회 테스트
 - 결제수단 확장 매트릭스 테스트
 - 테스트 데이터 정리 자동화

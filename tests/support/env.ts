@@ -8,6 +8,10 @@ const defaultCardPointAmounts = [5000];
 const defaultFamilyPaymentAmounts = [900, 5000, 501000];
 const defaultFamilyPaymentSuccessTextPattern =
   '가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다';
+const defaultPgApiAuthorization =
+  'dSgVkYp3s6v9y$B&E)H@McQeThWmZq4t7w!z%C*F-JaNdRgUjXn2r5u8x/A?D(G+';
+const defaultPgApiCustCi =
+  'p/8cpnfrPfHF8JDF61xaIyHskFbNrbXLJuyVEJwGtXDOJ2bznkmZDSh8+HhHIwZvxPXpVjMYFbssO0WQxrOoDT68YwoWJ7gg6w3d5WrIswbZ2bhvF336qhjN3EKIKlh2';
 
 loadDotEnv();
 
@@ -40,11 +44,18 @@ export const env = {
     defaultFamilyPaymentSuccessTextPattern,
   ),
   localStackDir: getEnv('LOCAL_STACK_DIR', defaultLocalStackDir),
-  apiPointTtlPnt: getNumberEnv('API_POINT_TTL_PNT', 1000),
-  apiPointTtlPayAmt: getNumberEnv('API_POINT_TTL_PAY_AMT', 5000),
-  apiPointTtlPntAmt: getNumberEnv('API_POINT_TTL_PNT_AMT', 1000),
-  apiPointCardProvider: getEnv('API_POINT_CARD_PROVIDER', 'KB'),
-  apiPointShopCmsnRate: getNumberEnv('API_POINT_SHOP_CMSN_RATE', 10),
+  pgApiBaseUrl: getEnv('PG_API_BASE_URL', 'http://localhost'),
+  pgApiPgCd: getEnv('PG_API_PG_CD', 'PG0006'),
+  pgApiShopCd: getEnv('PG_API_SHOP_CD', 'API_ph_CU'),
+  pgApiShopName: getEnv('PG_API_SHOP_NAME', 'API_pointhub용 CU'),
+  pgApiShopPayMethod: getEnv('PG_API_SHOP_PAY_METHOD', 'CU'),
+  pgApiGoodsName: getEnv('PG_API_GOODS_NAME', 'ApiTest상품'),
+  pgApiPointTargetAmount: getNumberEnv('PG_API_POINT_TARGET_AMOUNT', 4000),
+  pgApiShopCmsnRate: getNumberEnv('PG_API_SHOP_CMSN_RATE', 0),
+  pgApiAuthorization: getEnv('PG_API_AUTHORIZATION', defaultPgApiAuthorization),
+  pgApiCustCi: getEnv('PG_API_CUST_CI', defaultPgApiCustCi),
+  pgApiCustName: getEnv('PG_API_CUST_NAME', 'veMvOJTU0L98Zq20ceDJJA=='),
+  pgApiCustCtn: getEnv('PG_API_CUST_CTN', '0Lamm89+8wGhhHvtMMzuIA=='),
   headedSlowMoMs:
     process.env.PLAYWRIGHT_HEADED_SLOW_MO === '1' ? getNumberEnv('HEADED_SLOW_MO_MS', 250) : 0,
 };
