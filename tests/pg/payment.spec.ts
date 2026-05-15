@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { expectSuccessAlert } from './assertions';
+import { expectPageText, expectSuccessAlert } from './assertions';
 import { CardPointPaymentPage } from './card-point-payment-page';
 import { PgPage } from './pg-page';
 import { paymentScenarios } from './scenarios';
@@ -59,11 +59,11 @@ test.describe('PG local payment flow', { tag: ['@payment', '@e2e'] }, () => {
           await combinedPayment.enterCardPoint(scenario.convertedPointAmount);
         });
 
-        await test.step('복합결제 후 성공 alert 확인', async () => {
-          await expectSuccessAlert(combinedPayment.page, scenario.expectedSuccessPattern, async () => {
-            await combinedPayment.pay();
-            await combinedPayment.confirmIfPresent();
-          });
+        await test.step('복합결제 후 성공 결과 확인', async () => {
+          await combinedPayment.pay();
+          await combinedPayment.confirmIfPresent();
+          await expectPageText(combinedPayment.page, /ret_code=00/);
+          await expectPageText(combinedPayment.page, /ret_msg=성공/);
         });
 
         return;

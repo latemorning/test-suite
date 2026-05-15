@@ -1,7 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import {
   clickButton,
-  clickOptionalConfirm,
   findUsePointInput,
   isUsable,
   resetAllUsePointInputs,
@@ -80,7 +79,7 @@ export class SettleCombinedPaymentPage {
     if (await isUsable(sendButton)) {
       await sendButton.click();
       // [CU]소진형은 확인 후 포인트 전환 안내 레이어가 항상 뜨므로 레이어 확인 버튼을 추가로 클릭한다
-      await clickOptionalConfirm(this.currentPage, 5000);
+      await this.clickLayerConfirmIfPresent(5000);
       return;
     }
 
@@ -92,7 +91,7 @@ export class SettleCombinedPaymentPage {
    */
   async confirmIfPresent(): Promise<void> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const clicked = await clickOptionalConfirm(this.currentPage, 1500);
+      const clicked = await this.clickLayerConfirmIfPresent(1500);
       if (!clicked) return;
 
       // PG별로 확인 버튼 뒤에 한 번 더 전환/결제 확인 레이어가 뜰 수 있다.
@@ -113,5 +112,25 @@ export class SettleCombinedPaymentPage {
     }
 
     await this.currentPage.waitForLoadState('domcontentloaded').catch(() => undefined);
+  }
+
+  private async clickLayerConfirmIfPresent(timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    const confirmButton = this.currentPage
+      .locator('#myPopup:visible, .popup:visible, .modal:visible, [role="dialog"]:visible')
+      .locator('button, a, input[type="button"], input[type="submit"]')
+      .filter({ hasText: /확인/ })
+      .last();
+
+    while (Date.now() < deadline) {
+      if (await isUsable(confirmButton)) {
+        await confirmButton.click({ timeout: Math.max(1, deadline - Date.now()) });
+        return true;
+      }
+
+      await this.currentPage.waitForTimeout(100).catch(() => undefined);
+    }
+
+    return false;
   }
 }
