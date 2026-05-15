@@ -5,6 +5,7 @@ import {
   clickOptionalConfirm,
   findUsePointInput,
   isUsable,
+  resetAllUsePointInputs,
   resolveUsablePage,
   withAutoAcceptDialogs,
 } from './page-actions';
@@ -56,6 +57,7 @@ export class CardPointPaymentPage {
    * 카드사별 사용포인트 입력란에 시나리오의 전환포인트 금액을 입력한다.
    */
   async enterCardPoint(convertedPointAmount: number): Promise<void> {
+    await resetAllUsePointInputs(this.currentPage);
     const input = await findUsePointInput(this.currentPage);
     await fillConvertedPointInput(input, convertedPointAmount);
   }

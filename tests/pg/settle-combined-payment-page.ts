@@ -4,6 +4,7 @@ import {
   clickOptionalConfirm,
   findUsePointInput,
   isUsable,
+  resetAllUsePointInputs,
   resolveUsablePage,
   withAutoAcceptDialogs,
 } from './page-actions';
@@ -66,6 +67,7 @@ export class SettleCombinedPaymentPage {
    * 복합결제 포인트 입력 화면에서 전환포인트 목표값에 맞춰 사용포인트를 입력한다.
    */
   async enterCardPoint(convertedPointAmount: number): Promise<void> {
+    await resetAllUsePointInputs(this.currentPage);
     const input = await findUsePointInput(this.currentPage);
     await fillConvertedPointInput(input, convertedPointAmount);
   }
@@ -77,6 +79,8 @@ export class SettleCombinedPaymentPage {
     const sendButton = this.currentPage.locator('#send').first();
     if (await isUsable(sendButton)) {
       await sendButton.click();
+      // [CU]소진형은 확인 후 포인트 전환 안내 레이어가 항상 뜨므로 레이어 확인 버튼을 추가로 클릭한다
+      await clickOptionalConfirm(this.currentPage, 5000);
       return;
     }
 

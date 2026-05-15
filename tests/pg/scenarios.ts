@@ -95,7 +95,7 @@ const paymentPgProvidersByName: Record<string, PaymentPgProviderConfig> = {
     name: '세틀뱅크',
     code: 'PG0001',
     shops: [
-      { name: '소진형테스트가맹점' },
+      { name: '굿툰' },
       { name: '수커뮤니케이션' },
       {
         name: '세틀_복합결제(소진형)',
@@ -107,12 +107,16 @@ const paymentPgProvidersByName: Record<string, PaymentPgProviderConfig> = {
   메크로스: {
     name: '메크로스',
     code: 'PG0004',
-    shops: [{ name: '메가파일' }],
+    shops: [{ name: '메가파일', payLimitRate: 100 }],
   },
   페이레터: {
     name: '페이레터',
     code: 'PG0006',
-    shops: [{ name: '페이레터_UI_CU' }, { name: '페이레터_UI_SI' }, { name: '페이레터_1' }],
+    shops: [
+      { name: '페이레터_UI_CU' },
+      { name: '페이레터_UI_SI' },
+      { name: '페이레터_1', payLimitRate: 50 },
+    ],
   },
 };
 
@@ -143,7 +147,7 @@ export const paymentScenarios: PaymentScenario[] = env.paymentPgProviderNames.fl
         pgProvider,
         shopName: shop.name,
         paymentAmount,
-        convertedPointAmount: paymentAmount,
+        convertedPointAmount: resolveConvertedPointAmount(paymentAmount, shop.payLimitRate),
         paymentFlow: shop.paymentFlow ?? 'standard-card-point',
         payLimitRate: shop.payLimitRate,
         expectedSuccessPattern: new RegExp(env.successTextPattern),
@@ -215,6 +219,11 @@ function buildFamilyPaymentExpectation(paymentAmount: number): FamilyPaymentScen
     convertedPointAmount: paymentAmount,
     expectedSuccessPattern: new RegExp(env.familyPaymentSuccessTextPattern),
   };
+}
+
+function resolveConvertedPointAmount(paymentAmount: number, payLimitRate?: number): number {
+  if (payLimitRate === undefined) return paymentAmount;
+  return Math.floor((paymentAmount * payLimitRate) / 100);
 }
 
 function formatFamilyPaymentExpectation(expectation: FamilyPaymentScenarioExpectation): string {

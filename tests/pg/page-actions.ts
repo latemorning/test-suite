@@ -144,6 +144,50 @@ export async function findUsePointInput(target: Page): Promise<Locator> {
 }
 
 /**
+ * 카드포인트 사용포인트 입력 전 모든 카드사 행의 사용포인트를 0으로 초기화한다.
+ */
+export async function resetAllUsePointInputs(target: Page): Promise<void> {
+  const deadline = Date.now() + 15_000;
+
+  while (Date.now() < deadline) {
+    if ((await target.locator('input.pnt:visible').count().catch(() => 0)) > 0) break;
+    await target.waitForTimeout(250).catch(() => undefined);
+  }
+
+  let resetTargetCount = 0;
+
+  for (const root of searchRoots(target)) {
+    const resetButtons = root.locator('.pointGroup .initBtn:visible, .initBtn:visible');
+    const resetButtonCount = await resetButtons.count().catch(() => 0);
+    for (let index = 0; index < resetButtonCount; index += 1) {
+      const resetButton = resetButtons.nth(index);
+      if (await isUsable(resetButton)) {
+        await resetButton.click();
+      }
+    }
+
+    const inputs = root.locator('input.pnt:visible');
+    const inputCount = await inputs.count().catch(() => 0);
+    for (let index = 0; index < inputCount; index += 1) {
+      const input = inputs.nth(index);
+      if (!(await isUsable(input, true))) continue;
+
+      resetTargetCount += 1;
+      await fillAndNotify(input, '0');
+    }
+  }
+
+  if (resetTargetCount === 0) {
+    throw new Error(
+      [
+        'Could not find editable card point inputs to reset.',
+        `URL: ${target.url()}`,
+      ].join('\n'),
+    );
+  }
+}
+
+/**
  * 가상 인증처럼 alert가 부수적으로 뜨는 조작을 자동 승인한다.
  */
 export async function withAutoAcceptDialogs(
@@ -214,6 +258,13 @@ async function firstEditable(locator: Locator): Promise<Locator | null> {
   }
 
   return null;
+}
+
+async function fillAndNotify(input: Locator, value: string): Promise<void> {
+  await input.fill(value);
+  await input.dispatchEvent('input');
+  await input.dispatchEvent('change');
+  await input.dispatchEvent('focusout');
 }
 
 function searchRoots(target: Page): SearchRoot[] {
