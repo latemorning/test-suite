@@ -1,0 +1,858 @@
+{
+	"info": {
+		"_postman_id": "69645070-ef17-47b2-8dd8-948dbb8145ff",
+		"name": "AZ010 | azure 결제 TEST 공통 **********",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Z01 | 약관목록 조회",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "bd511be1-76da-4b99-9e19-4f804732bbf7",
+						"exec": [
+							"pm.variables.set(\"v_phub_tr_no\", pm.response.json().phub_tr_no)\r",
+							"\r",
+							"pm.test(\"response is ok\", function(){\r",
+							"    let jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql('00')\r",
+							"})\r",
+							"\r",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "8ef9884c-fe72-49cd-a9c5-46e4a395ec95",
+						"exec": [
+							"// pg 거래번호\r",
+							"const pg_tr_no = 'AT_PG_TR_NO_' + comm.getCurrentTimeString()\r",
+							"pm.variables.set(\"v_pg_tr_no\", pg_tr_no)\r",
+							"\r",
+							"\r",
+							"// ci\r",
+							"pm.variables.set(\"v_cust_ci\", comm.getEnvironmentUserCi(pm.environment.name))\r",
+							"\r",
+							"\r",
+							"// 'SI', 'CO', 'CU'\r",
+							"const deal_se = 'CU'\r",
+							"pm.variables.set(\"v_deal_se\", deal_se)\r",
+							"\r",
+							"\r",
+							"const pg_cd = 'PG0006'\r",
+							"pm.variables.set(\"v_pg_cd\", pg_cd)\r",
+							"pm.variables.set(\"v_shop_cd\", comm.getShopCode(pm.environment.name, deal_se))\r",
+							"pm.variables.set(\"v_shop_nm\", comm.getShopName(pm.environment.name, deal_se))\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"type": "text",
+						"value": "{{header_auth}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n \"pg_tr_no\": \"{{v_pg_tr_no}}\",\r\n \"pg_cd\": \"{{v_pg_cd}}\",\r\n \"shop_cd\": \"{{v_shop_cd}}\",\r\n \"pg_cust_ci\": \"{{v_cust_ci}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/r/terms",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"r",
+						"terms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Z02 | 필수약관 전체동의",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "6bc04392-5ddc-48c4-b8b1-8bec62211554",
+						"exec": [
+							"\r",
+							"const test_name = '류승연'\r",
+							"const test_ctn = '01082551162'\r",
+							"\r",
+							"//console.log('222222')\r",
+							"\r",
+							"const enc_name = enc.getEncString(test_name)\r",
+							"const enc_ctn = enc.getEncString(test_ctn) \r",
+							"\r",
+							"console.log(enc_name)\r",
+							"console.log(enc_ctn)\r",
+							"\r",
+							"\r",
+							"console.log(enc.getDecString(enc_name))\r",
+							"console.log(enc.getDecString(enc_ctn))\r",
+							"\r",
+							"//const plain_name = enc.getDecString(\"RyO+d+6ZFyZR9BClhJF2yg==\");\r",
+							"//const plain_ctn = enc.getDecString(\"XIuRnTBJXVxCJa3JJ0oo0g==\");\r",
+							"\r",
+							"//console.log(plain_name);\r",
+							"//console.log(plain_ctn);\r",
+							"\r",
+							"\r",
+							"//pm.variables.set(\"v_enc_name\", enc_name);\r",
+							"//pm.variables.set(\"v_enc_ctn\", enc_ctn);\r",
+							"// prd 페이레터\r",
+							"pm.variables.set(\"v_enc_name\", \"RyO+d+6ZFyZR9BClhJF2yg==\");\r",
+							"pm.variables.set(\"v_enc_ctn\", \"XIuRnTBJXVxCJa3JJ0oo0g==\");\r",
+							"//const enc_name = pm.environment.get(\"test_enc_name\");\r",
+							"//const enc_ctn = pm.environment.get(\"test_enc_ctn\")\r",
+							"//pm.variables.set(\"v_enc_name\", enc_name);\r",
+							"//pm.variables.set(\"v_enc_ctn\", enc_ctn);\r",
+							"\r",
+							"\r",
+							"//console.log(enc.getDecString(\"veMvOJTU0L98Zq20ceDJJA==\"))\r",
+							"//console.log(enc.getDecString(\"0Lamm89+8wGhhHvtMMzuIA==\"))\r",
+							"\r",
+							"// dev 페이레터\r",
+							"//pm.variables.set(\"v_enc_name\", \"DQ374ZMS9Owz0JZo38t4Sg==\");\r",
+							"//pm.variables.set(\"v_enc_ctn\", \"q2EL2K+5bSGbCZDppiQvbA==\");\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "b2849ca4-5dc8-4323-96ac-8e7afd3b39d6",
+						"exec": [
+							"pm.test(\"response is ok\", function(){\r",
+							"    let jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql('00')\r",
+							"})\r",
+							"\r",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"type": "text",
+						"value": "{{header_auth}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"phub_tr_no\": \"{{v_phub_tr_no}}\",\r\n    \"pg_tr_no\": \"{{v_pg_tr_no}}\",\r\n    \"pg_cd\": \"{{v_pg_cd}}\",\r\n    \"shop_cd\": \"{{v_shop_cd}}\",\r\n    \"pg_cust_name\": \"{{v_enc_name}}\",\r\n    \"pg_cust_ctn\": \"{{v_enc_ctn}}\",\r\n    \"pg_cust_ci\": \"{{v_cust_ci}}\",\r\n    \"is_mdt_all\":\"Y\"\r\n  }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/c/terms",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"c",
+						"terms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Z03 | 포인트조회",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "e914ea03-2bdf-404d-867f-fc20273ed79f",
+						"exec": [
+							"let jsonData\r",
+							"\r",
+							"pm.test(\"response is ok\", function(){\r",
+							"    jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql(\"00\")\r",
+							"})\r",
+							"\r",
+							"const prvdr_list = jsonData.prvdr_list\r",
+							"pm.variables.set(\"v_prvdr_list\", prvdr_list)\r",
+							"\r",
+							"if(prvdr_list != null) {\r",
+							"    prvdr_list.forEach(prvdr => {\r",
+							"\r",
+							"        if(prvdr.pnt_cd === \"bccard\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_bccard_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"kbpointree\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_kbpointree_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"shinhan\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_shinhan_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"hanamembers\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_hanamembers_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"samsungcard\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_samsungcard_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"hyundaicard\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_hyundaicard_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"lottemembers\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_lottemembers_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"wooricard\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_wooricard_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"nhmembers\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_nhmembers_tr_no\", prvdr.pnt_tr_no)\r",
+							"        } else if(prvdr.pnt_cd === \"naverpay\") {\r",
+							"\r",
+							"            pm.variables.set(\"v_naverpay_tr_no\", prvdr.pnt_tr_no)\r",
+							"        }\r",
+							"    })\r",
+							"}\r",
+							"\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "613be484-3339-4c6a-b1d6-cd3aa5b0075d",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{header_auth}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"pg_tr_no\":\"{{v_pg_tr_no}}\",\r\n\t\"pg_cd\":\"{{v_pg_cd}}\",\r\n\t\"phub_tr_no\":\"{{v_phub_tr_no}}\",\r\n\t\"shop_cd\":\"{{v_shop_cd}}\",\r\n\t\"shop_name\":\"{{v_shop_nm}}\",\r\n\t\"goods_name\":\"ApiTest상품\",\r\n\t\"pg_cust_ci\":\"{{v_cust_ci}}\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/r/pnt",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"r",
+						"pnt"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Z04 | 포인트 사용",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "9f31fc34-58de-4a91-9a4f-cb3dd75285e1",
+						"exec": [
+							"// 고객부담수수료율\r",
+							"const shop_cmsn_rate = 0\r",
+							"pm.variables.set(\"v_shop_cmsn_rate\", shop_cmsn_rate)\r",
+							"\r",
+							"// 상품금액 \r",
+							"const ttl_pay_amt = 4000\r",
+							"pm.variables.set(\"v_ttl_pay_amt\", ttl_pay_amt)\r",
+							"\r",
+							"/* 각 카드사별 사용포인트\r",
+							"    - 사용금액에 따라 아래 배열에서 수정\r",
+							"    - 전단계 포인트 조회에서 조회가 되지 않은 카드사는 제외됨\r",
+							"    - point를 0으로 하면 해당 카드사 포인트 사용요청 제외됨\r",
+							"*/\r",
+							"const use_points = [\r",
+							"    {\"pnt_cd\": \"bccard\", \"point\": 1000},           // 사용불가 - 통신오류 설정되어있음\r",
+							"    {\"pnt_cd\": \"kbpointree\", \"point\": 1000},       // 사용불가 - 30일 이전에만 정정가능 오류남\r",
+							"    {\"pnt_cd\": \"shinhan\", \"point\": 0},\r",
+							"    {\"pnt_cd\": \"hanamembers\", \"point\": 1000},\r",
+							"    {\"pnt_cd\": \"samsungcard\", \"point\": 1000},      // 사용불가 - 매입취소로 오류발생\r",
+							"    {\"pnt_cd\": \"hyundaicard\", \"point\": 0},\r",
+							"    {\"pnt_cd\": \"lottemembers\", \"point\": 0},\r",
+							"    {\"pnt_cd\": \"wooricard\", \"point\": 0},\r",
+							"    {\"pnt_cd\": \"nhmembers\", \"point\": 0},        // 사용불가 - 포인트없음(조회안됨)\r",
+							"//    {\"pnt_cd\": \"naverpay\", \"point\": 1000},\r",
+							"]\r",
+							"\r",
+							"// 포인트 조회에서 가져온 카드사별 정보 배열\r",
+							"const prvdr_list = pm.variables.get(\"v_prvdr_list\")\r",
+							"\r",
+							"// 각 카드사 사용 point 총합\r",
+							"let ttl_pnt = 0\r",
+							"prvdr_list.forEach(prvdr => {\r",
+							"    const use_point_obj = use_points.filter(use_point => use_point.pnt_cd === prvdr.pnt_cd)\r",
+							"    ttl_pnt = ttl_pnt + use_point_obj[0].point\r",
+							"})\r",
+							"pm.variables.set(\"v_ttl_pnt\", ttl_pnt)\r",
+							"\r",
+							"// 각 카드사 사용 point_amt 총합\r",
+							"let ttl_pnt_amt = 0\r",
+							"prvdr_list.forEach(prvdr => {\r",
+							"    const use_point_obj = use_points.filter(use_point => use_point.pnt_cd === prvdr.pnt_cd)\r",
+							"    ttl_pnt_amt = ttl_pnt_amt + use_point_obj[0].point * prvdr.pnt_exch_rate\r",
+							"})\r",
+							"pm.variables.set(\"v_ttl_pnt_amt\", ttl_pnt_amt)\r",
+							"\r",
+							"// 결제할인액\r",
+							"let ttl_cprt_amt = ttl_pnt_amt - (ttl_pnt_amt * (shop_cmsn_rate / 100))\r",
+							"\r",
+							"//ttl_cprt_amt = 450000\r",
+							"pm.variables.set(\"v_ttl_cprt_amt\", ttl_cprt_amt)\r",
+							"\r",
+							"// 잔여금액\r",
+							"const ttl_rmnd_amt = ttl_pay_amt - ttl_cprt_amt\r",
+							"pm.variables.set(\"v_ttl_rmnd_amt\", ttl_rmnd_amt)\r",
+							"//pm.variables.set(\"v_ttl_rmnd_amt\", 0)\r",
+							"\r",
+							"// 포인트사용 요청 list 생성\r",
+							"const req_prvdr_list = prvdr_list.filter(p => use_points.some(u => p.pnt_cd === u.pnt_cd && u.point > 0)).map((prvdr) => {\r",
+							"    \r",
+							"    const rtn_obj = {}\r",
+							"\r",
+							"    rtn_obj.pnt_tr_no = prvdr.pnt_tr_no\r",
+							"    rtn_obj.pnt_cd = prvdr.pnt_cd\r",
+							"    rtn_obj.name = prvdr.pnt_nm\r",
+							"\r",
+							"    const use_point_obj = use_points.filter(use_point => use_point.pnt_cd === prvdr.pnt_cd)[0]\r",
+							"\r",
+							"    console.log(JSON.stringify(use_point_obj))\r",
+							"\r",
+							"    rtn_obj.point = use_point_obj.point\r",
+							"    rtn_obj.point_amt = use_point_obj.point * prvdr.pnt_exch_rate\r",
+							"\r",
+							"    return rtn_obj\r",
+							"})\r",
+							"pm.variables.set(\"v_req_prvdr_list\", JSON.stringify(req_prvdr_list))\r",
+							"\r",
+							"// hash ----------\r",
+							"const pg_tr_no = pm.variables.get(\"v_pg_tr_no\")\r",
+							"const phub_tr_no = pm.variables.get(\"v_phub_tr_no\")\r",
+							"const shop_cd = pm.variables.get(\"v_shop_cd\")\r",
+							"\r",
+							"const hash_source = pg_tr_no + ttl_pnt_amt + shop_cd + phub_tr_no\r",
+							"const hash2 = CryptoJS.SHA256(hash_source).toString()\r",
+							"\r",
+							"console.log(hash_source + '  --  ' + hash2)\r",
+							"\r",
+							"pm.variables.set(\"v_hash2\", hash2)\r",
+							"\r",
+							"\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "3be16743-1b87-4c69-8c69-8e73ed345929",
+						"exec": [
+							"pm.test(\"response is ok\", function(){\r",
+							"    let jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql(\"00\")\r",
+							"})\r",
+							"\r",
+							"pm.variables.set(\"v_pay_amt\", pm.response.json().pay_amt)\r",
+							"pm.variables.set(\"v_points_amt\", pm.response.json().points_amt)\r",
+							"\r",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{header_auth}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"pg_tr_no\": \"{{v_pg_tr_no}}\",\r\n    \"pg_cd\": \"{{v_pg_cd}}\",\r\n    \"phub_tr_no\": \"{{v_phub_tr_no}}\",\r\n    \"shop_cd\": \"{{v_shop_cd}}\",\r\n    \"pg_cust_ci\": \"{{v_cust_ci}}\",\r\n    \"shop_pay_method\": \"{{v_deal_se}}\",\r\n    \"shop_cmsn_rate\": {{v_shop_cmsn_rate}},\r\n    \"prvdr_list\": {{v_req_prvdr_list}},\r\n    \"check_hash\": \"{{v_hash2}}\",\r\n    \"ttl_pnt\": {{v_ttl_pnt}},\r\n    \"ttl_pay_amt\": {{v_ttl_pay_amt}},\r\n    \"ttl_pnt_amt\": {{v_ttl_pnt_amt}},\r\n    \"ttl_rmnd_amt\": {{v_ttl_rmnd_amt}},\r\n    \"ttl_cprt_amt\": {{v_ttl_cprt_amt}}\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/c/pnt",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"c",
+						"pnt"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Z05 | 포인트 사용 취소",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "674b2ede-4e45-4611-beb7-d2dd7759ab13",
+						"exec": [
+							"pm.test(\"response is ok\", function(){\r",
+							"    let jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql(\"00\")\r",
+							"})\r",
+							"\r",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "90fe1644-f033-485a-a927-bdbc04a9736c",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{header_auth}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"pg_tr_no\":\"{{v_pg_tr_no}}\",\r\n  \"pg_cd\":\"{{v_pg_cd}}\",\r\n  \"phub_tr_no\":\"{{v_phub_tr_no}}\",\r\n  \"ori_pg_tr_no\":\"{{v_pg_tr_no}}\",\r\n  \"tr_div\":\"CA\",\r\n  \"points\":{{v_ttl_pnt_amt}},\r\n  \"check_hash\":\"{{v_hash2}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/d/pnt",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"d",
+						"pnt"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Z06 | 암복호화 clip",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "6bc04392-5ddc-48c4-b8b1-8bec62211554",
+						"exec": [
+							"\r",
+							"const test_name = '류승연'\r",
+							"const test_ctn = '01082551162'\r",
+							"\r",
+							"console.log('222222')\r",
+							"\r",
+							"const enc_name = enc.getEncString(test_name)\r",
+							"const enc_ctn = enc.getEncString(test_ctn) \r",
+							"\r",
+							"console.log(enc_name)\r",
+							"console.log(enc_ctn)\r",
+							"\r",
+							"\r",
+							"console.log(enc.getDecString(enc_name))\r",
+							"console.log(enc.getDecString(enc_ctn))\r",
+							"\r",
+							"\r",
+							"\r",
+							"\r",
+							"console.log(enc.getDecString(\"aWAm5s4pIy1JkMuzF4Cadw==\"))\r",
+							"console.log(enc.getDecString(\"H4eNZbNtUBD3YVmxxGISkw==\"))\r",
+							"\r",
+							"// dev 페이레터\r",
+							"pm.variables.set(\"v_enc_name\", \"veMvOJTU0L98Zq20ceDJJA==\");\r",
+							"pm.variables.set(\"v_enc_ctn\", \"0Lamm89+8wGhhHvtMMzuIA==\");\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "b2849ca4-5dc8-4323-96ac-8e7afd3b39d6",
+						"exec": [
+							"pm.test(\"response is ok\", function(){\r",
+							"    let jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql('00')\r",
+							"})\r",
+							"\r",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"type": "text",
+						"value": "{{header_auth}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"phub_tr_no\": \"{{v_phub_tr_no}}\",\r\n    \"pg_tr_no\": \"{{v_pg_tr_no}}\",\r\n    \"pg_cd\": \"{{v_pg_cd}}\",\r\n    \"shop_cd\": \"{{v_shop_cd}}\",\r\n    \"pg_cust_name\": \"{{v_enc_name}}\",\r\n    \"pg_cust_ctn\": \"{{v_enc_ctn}}\",\r\n    \"pg_cust_ci\": \"{{v_cust_ci}}\",\r\n    \"is_mdt_all\":\"Y\"\r\n  }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/c/terms",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"c",
+						"terms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "C18, C19 | 약관철회 Copy",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "2b3fa006-e0cc-4c77-93d6-dca6c65099ed",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "f0021618-b2fb-4166-9f31-454fc473382e",
+						"exec": [
+							"pm.test(\"response is ok\", function(){\r",
+							"    let jsonData = pm.response.json();\r",
+							"    pm.expect(jsonData.ret_code).to.eql('00')\r",
+							"})\r",
+							"\r",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "{{header_auth}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"pg_cd\": \"{{v_pg_cd}}\",\r\n  \"shop_cd\": \"{{v_shop_cd}}\",\r\n  \"pg_cust_ci\": \"{{v_cust_ci}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/api/v1/d/terms",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"d",
+						"terms"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "13a8a3b4-43d7-497a-b90e-97642abe0ddb",
+				"type": "text/javascript",
+				"exec": [
+					"comm = {",
+					"    getCurrentTimeString: function() {",
+					"",
+					"        today = new Date()",
+					"",
+					"        dd = today.getDate()",
+					"        mm = today.getMonth()+1",
+					"        yyyy = today.getFullYear()",
+					"        hh = today.getHours()",
+					"        mi = today.getMinutes()",
+					"        ss = today.getSeconds()",
+					"",
+					"        if (dd < 10) { dd = '0'+dd }",
+					"        if (mm < 10) { mm = '0'+mm }",
+					"",
+					"        // 날짜 문자열 반환",
+					"        return '' + yyyy + mm + dd + hh + mi + ss",
+					"    },",
+					"    getEnvironmentUserCi: function(envi) {",
+					"",
+					"        cust_ci = ''",
+					"",
+					"        if (envi === 'dev' || envi === 'dev_azure' || envi === 'local') {",
+					"",
+					"            //cust_ci = 'sS8TlfLNBAy+kyLwv4Wzbgy3MQk39IJaorXCOg27pAUOm2wSrqgfOFeJ5yGgUfU9+l6hw8NnZw5W9STiND9N9oxQaAVxEUWmVfdJ0hFuTs7VPfSFUwYX3c0D010NpHQw'",
+					"            cust_ci = 'p/8cpnfrPfHF8JDF61xaIyHskFbNrbXLJuyVEJwGtXDOJ2bznkmZDSh8+HhHIwZvxPXpVjMYFbssO0WQxrOoDT68YwoWJ7gg6w3d5WrIswbZ2bhvF336qhjN3EKIKlh2'",
+					"        }",
+					"        else if (envi === 'prod_azure') { // prod",
+					"",
+					"            //cust_ci = 'YKgp4AljxEYIB11edNmrLhqCQMarhi/MO4OP7MZbK7WjvuGxh3G7j52OPa7p5H0vgkhrq6QdL4/8q/izb5uyZhhf/XW0jwoFLk3YddU/vknD3B01H/jwGNF80plZDBFl'",
+					"            ",
+					"            // 김학진",
+					"            cust_ci = 'lrgKDjDNgWErXecCUBGEx64cBL7rkqAOoYWoYVyaFBpJY4x8Y6LHx0ZwjZkbctHh/cCIU06FIvhbHGKoSATiXBQ/2elb3NHf9o3YRjbF5jrtyZOMrhiRkKnor0i7amsS'",
+					"            ",
+					"            // 김동욱",
+					"            //cust_ci = 'joYuRMPDgktFT7zRoGNz9blSVu93r0ITHHEd3hUF9qLc2M7GrbNBIpIw9R7UKpYnLvRSsZwzKtewi8ta+zreUN8YS+CzGsPIFGA0nY8aOb0FVQoZ2j+Co0V5bRu3dpsi'",
+					"        }",
+					"",
+					"        return cust_ci",
+					"    },",
+					"    getShopCode: function(envi, deal_se) {",
+					"",
+					"        shop_cd_si = ''",
+					"        shop_cd_co = ''",
+					"        shop_cd_cu = ''",
+					"",
+					"        if (envi === 'dev' || envi === 'dev_azure') {",
+					"            shop_cd_si = 'API_ph_SI'",
+					"            shop_cd_co = 'API_ph_CO'",
+					"            shop_cd_cu = 'API_ph_CU'",
+					"        }",
+					"        else if (envi === 'local') {",
+					"            shop_cd_si = 'API_ph_SI'",
+					"            shop_cd_co = 'API_ph_CO'",
+					"            shop_cd_cu = 'API_ph_CU'",
+					"        }",
+					"        else if (envi === 'prod' || envi === 'prod_azure') {",
+					"            shop_cd_si = 'SIAPI00001'",
+					"            shop_cd_co = 'COAPI00001'",
+					"            shop_cd_cu = 'CUAPI00001'",
+					"        }",
+					"",
+					"        shop_code = ''",
+					"",
+					"        if (deal_se === 'SI') { shop_code = shop_cd_si }",
+					"        else if (deal_se === 'CO') { shop_code = shop_cd_co }",
+					"        else if (deal_se === 'CU') { shop_code = shop_cd_cu }",
+					"",
+					"        return shop_code",
+					"    },",
+					"    getShopName: function(envi, deal_se) {",
+					"",
+					"        shop_nm_si = ''",
+					"        shop_nm_co = ''",
+					"        shop_nm_cu = ''",
+					"",
+					"        if (envi === 'dev' || envi === 'dev_azure') {",
+					"            shop_nm_si = 'API_pointhub용 SI'",
+					"            shop_nm_co = 'API_pointhub용 CO'",
+					"            shop_nm_cu = 'API_pointhub용 CU'",
+					"        }",
+					"        else if (envi === 'local') { // local",
+					"            shop_nm_si = 'API_pointhub용 SI'",
+					"            shop_nm_co = 'API_pointhub용 CO'",
+					"            shop_nm_cu = 'API_pointhub용 CU'",
+					"        }",
+					"        else if (envi === 'prod' || envi === 'prod_azure') {",
+					"            shop_nm_si = 'API_pointhub용 SI'",
+					"            shop_nm_co = 'API_pointhub용 CO'",
+					"            shop_nm_cu = 'API_pointhub용 CU'",
+					"        }",
+					"",
+					"        shop_name = ''",
+					"",
+					"        if (deal_se === 'SI') { shop_name = shop_nm_si }",
+					"        else if (deal_se === 'CO') { shop_name = shop_nm_co }",
+					"        else if (deal_se === 'CU') { shop_name = shop_nm_cu }",
+					"",
+					"        return shop_name",
+					"    }",
+					"",
+					"}",
+					"",
+					"enc = {",
+					"    IV_STR: CryptoJS.enc.Utf8.parse(\"QfTjWnZr4t7w!z%C\"),",
+					"    KEY_STR: CryptoJS.enc.Utf8.parse(\"eShVmYp3s6v9y$B&E)H@McQfTjWnZr4t\"),",
+					"    getEncString: function(plain_string) {",
+					"        return CryptoJS.AES.encrypt(",
+					"                        plain_string, ",
+					"                        enc.KEY_STR, ",
+					"                        {",
+					"                            iv: enc.IV_STR,",
+					"                            mode: CryptoJS.mode.CBC,",
+					"                            padding: CryptoJS.pad.Pkcs7",
+					"                            ",
+					"                        }",
+					"        ).toString()",
+					"    },",
+					"    getDecString: function(enc_string) {",
+					"        return CryptoJS.AES.decrypt(",
+					"                        enc_string, ",
+					"                        enc.KEY_STR, ",
+					"                        {",
+					"                            iv: enc.IV_STR,",
+					"                            mode: CryptoJS.mode.CBC,",
+					"                            padding: CryptoJS.pad.Pkcs7",
+					"                            ",
+					"                        }",
+					"        ).toString(CryptoJS.enc.Utf8)",
+					"    }",
+					"}",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "836a360e-f562-4b3a-b08f-76c8afe65e02",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"protocolProfileBehavior": {}
+}
