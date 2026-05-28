@@ -463,6 +463,7 @@ export class PgApiClient {
     const authHeaderValue = this.config.authHeader;
 
     try {
+      logApiRequest(path, url, body);
       const response = await this.request.post(url, {
         data: body,
         headers: {
@@ -473,6 +474,7 @@ export class PgApiClient {
       });
       status = String(response.status());
       responseText = await response.text();
+      logApiResponse(path, status, responseText);
 
       if (!response.ok()) {
         throw this.buildApiError(path, status, body, responseText);
@@ -572,6 +574,41 @@ function toNonEmptyString(value: unknown): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function logApiRequest(path: PgApiPath, url: string, body: JsonObject): void {
+  console.info(
+    [
+      `[PG API][request] ${path}`,
+      `Method: POST`,
+      `URL: ${url}`,
+      `Body: ${formatJsonForLog(body)}`,
+    ].join('\n'),
+  );
+}
+
+function logApiResponse(path: PgApiPath, status: string, responseText: string): void {
+  console.info(
+    [
+      `[PG API][response] ${path}`,
+      `Status: ${status}`,
+      `Body: ${formatResponseBodyForLog(responseText)}`,
+    ].join('\n'),
+  );
+}
+
+function formatJsonForLog(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}
+
+function formatResponseBodyForLog(responseText: string): string {
+  if (!responseText) return '(empty)';
+
+  try {
+    return formatJsonForLog(JSON.parse(responseText) as unknown);
+  } catch {
+    return responseText;
+  }
 }
 
 function formatProviderForDiagnostics(provider: PointProvider): string {

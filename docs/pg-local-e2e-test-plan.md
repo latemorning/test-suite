@@ -12,16 +12,19 @@
 
 v1에서는 GitHub Actions, Slack 알림, 운영 환경 테스트, 외부 side effect 검증은 포함하지 않는다.
 
-## Key Changes
+## Current Implementation Snapshot
 
-추후 구현 시 다음 기준으로 프로젝트를 구성한다.
+현재 소스는 TypeScript + Playwright 프로젝트 형태로 구성되어 있다.
 
-- `package.json`, `playwright.config.ts`, `tsconfig.json`으로 TypeScript + Playwright 프로젝트를 구성한다.
-- 기본 실행은 headless 모드로 두고, 로컬 디버깅용 headed 실행 스크립트를 별도로 둔다.
-- headed 실행은 화면 확인이 쉽도록 `HEADED_SLOW_MO_MS` 값으로 브라우저 동작 지연을 조절한다.
-- 환경값은 `.env`에서 받을 수 있게 하되 기본값을 제공한다.
-- 페이지 객체 또는 헬퍼 계층을 두어 버튼, 입력 필드, 팝업 탐색 로직을 한 곳에서 관리한다.
-- 실패 진단을 위해 Playwright trace, screenshot, video, HTML report를 남긴다.
+- `package.json`은 `test`, `typecheck`, `test:smoke`, `test:payment`, `test:family-payment`, `test:api-terms`, `test:api-point`, `test:headed`, `test:debug`, `test:ui`, `install:browsers` 스크립트를 제공한다.
+- 로컬 서비스 보조 스크립트는 `docker compose --project-directory /Users/harry/docker/middleware-stack` 기준의 `service:ps`, `service:up`, `service:logs`로 구성되어 있다.
+- `playwright.config.ts`는 `tests` 디렉터리를 대상으로 Chromium 한 프로젝트만 실행하며, trace/screenshot/video/HTML report를 실패 진단 자료로 남긴다.
+- `tests/support/env.ts`는 별도 `dotenv` 의존성 없이 단순 `KEY=VALUE` 형식의 `.env`를 읽고, 없으면 기본값을 사용한다.
+- 화면 E2E는 `PgPage`, `CardPointPaymentPage`, `SettleCombinedPaymentPage`, `FamilyPaymentPage`, `page-actions.ts`, `point-conversion.ts`, `assertions.ts`로 팝업 전환, 인증, 포인트 입력, 성공 판정을 분리한다.
+- API 직접 호출은 `PgApiClient`가 약관 조회/동의, 포인트 조회/사용/취소, 거래번호 생성, `check_hash` 생성, 진단용 오류 메시지를 담당한다.
+- 현재 `tests/pg/scenarios.ts`는 다른 spec들이 기대하는 시나리오 모듈 계약을 만족하지 않는다. `paymentScenarios`, `familyPaymentScenarios`, `apiTermsScenario` export가 없고, `apiPointPaymentScenario`도 `api-point-payment.spec.ts`가 기대하는 `name`, `terms.requiredTerms` 구조와 다르다.
+- 새로 추가된 `point-inquiry.spec.ts`, `point-enhanced.spec.ts`, `point-extended.spec.ts`, `point-functions.spec.ts`, `point-method-access.spec.ts`는 현재 v1 기준 흐름과 정합성이 맞지 않는 실험적/정리 전 테스트로 본다.
+- 2026-05-27 기준 `npm run typecheck`는 실패한다. 주요 원인은 `scenarios.ts` export 불일치, `apiPointPaymentScenario` 구조 불일치, `point-enhanced.spec.ts`와 `point-extended.spec.ts`의 `expect` import 누락, `point-functions.spec.ts`의 private method 접근, `scenarios.ts`의 `shopCmsnRate` 중복 속성이다.
 
 기본 환경값은 다음과 같이 둔다.
 
@@ -34,6 +37,7 @@ FAMILY_PAYMENT_AMOUNTS=900,5000,501000
 FAMILY_PAYMENT_SHOP_NAME=세틀_패밀리박스
 FAMILY_PAYMENT_SHOP_CODES=PO0134,PO0018,PO0017,PO0016,PO0015,PO0011
 FAMILY_PAYMENT_SUCCESS_TEXT_PATTERN=가족 분 "손창익", "김학진", "최창현", "이용수", "최주희"님에게 할인권 요청 메시지가 발송 되었습니다
+LOCAL_STACK_DIR=/Users/harry/docker/middleware-stack
 PG_API_BASE_URL=http://localhost
 PG_API_PG_CD=PG0006
 PG_API_SHOP_CD=API_ph_CU
@@ -42,14 +46,14 @@ PG_API_SHOP_PAY_METHOD=CU
 PG_API_GOODS_NAME=ApiTest상품
 PG_API_POINT_TARGET_AMOUNT=4000
 PG_API_SHOP_CMSN_RATE=0
-PG_API_AUTHORIZATION=dSgVkYp3s6v9y$B&E)H@McQeThWmZq4t7w!z%C*F-JaNdRgUjXn2r5u8x/A?D(G+
+PG_API_AUTHORIZATION="dSgVkYp3s6v9y$B&E)H@McQeThWmZq4t7w!z%C*F-JaNdRgUjXn2r5u8x/A?D(G+"
 PG_API_CUST_CI=p/8cpnfrPfHF8JDF61xaIyHskFbNrbXLJuyVEJwGtXDOJ2bznkmZDSh8+HhHIwZvxPXpVjMYFbssO0WQxrOoDT68YwoWJ7gg6w3d5WrIswbZ2bhvF336qhjN3EKIKlh2
 PG_API_CUST_NAME=veMvOJTU0L98Zq20ceDJJA==
 PG_API_CUST_CTN=0Lamm89+8wGhhHvtMMzuIA==
 HEADED_SLOW_MO_MS=250
 ```
 
-로컬 서비스는 기본적으로 사용자가 직접 실행한 상태를 대상으로 한다. 다만 구현 시 `~/docker/middleware-stack`에서 서비스 기동 방법을 파악할 수 있으면, 별도 npm script로 로컬 서비스 기동을 보조할 수 있게 구성한다.
+로컬 서비스는 기본적으로 사용자가 직접 실행한 상태를 대상으로 한다. 현재는 `~/docker/middleware-stack`의 `pointhub` 서비스를 보조 기동하는 npm script만 제공한다.
 
 ## Target Flow
 
@@ -60,14 +64,15 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 3. 결제 시나리오의 PG사 탭 선택
    - 기본 대상: `세틀뱅크`, `메크로스`, `페이레터`
 4. 시나리오가 지정한 가맹점이 있으면 해당 가맹점 선택
-   - `세틀뱅크`: `소진형테스트가맹점`, `수커뮤니케이션`, `세틀_복합결제(소진형)`
+   - `세틀뱅크`: `굿툰`, `수커뮤니케이션`, `세틀_복합결제(소진형)`
    - `메크로스`: `메가파일`
    - `페이레터`: `페이레터_UI_CU`, `페이레터_UI_SI`, `페이레터_1`
-5. `암호화` 버튼 클릭
-6. 시나리오가 `pay_limit_rate` 값을 지정하면 `암호화` 이후 `PC전용 Submit` 전에 해당 값을 입력
+5. `pay_amt` 자동 암호화를 트리거하고 완료됐는지 확인
+   - 현재 로컬 화면은 별도 `암호화` 버튼 없이 `pay_amt` 입력란 포커스가 빠질 때 현재 PG사 키로 자동 암호화한다.
+6. 시나리오가 `pay_limit_rate` 값을 지정하면 `pay_amt` 자동 암호화 이후 `PC전용 Submit` 전에 해당 값을 입력
    - 카드포인트 입력 목표 전환포인트는 `pay_amt * pay_limit_rate / 100`으로 계산한다.
    - `세틀_복합결제(소진형)`은 `pay_limit_rate=100`을 사용한다.
-   - 현재 로컬 화면은 `암호화` 클릭 후 `pay_limit_rate`가 `0`으로 재설정되므로 암호화 이후에 입력한다.
+   - 현재 로컬 화면은 `pay_amt` 자동 암호화 과정에서 `pay_limit_rate`가 `0`으로 재설정될 수 있으므로 자동 암호화 이후에 입력한다.
 7. `PC전용 Submit` 버튼 클릭
 8. 약관 화면에서 `전체 약관 동의 후 포인트조회하기(선택포함)` 또는 같은 의미의 본인인증 진입 버튼 클릭
    - `세틀_복합결제(소진형)`은 약관 전체동의 체크박스 `#agreeAll`을 선택한 뒤 `#send` 확인 버튼으로 진행한다.
@@ -89,7 +94,7 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 3. `FAMILY_PAYMENT_SHOP_CODES`가 있으면 각 값별로 별도 테스트를 등록하고 `#shop_sel` option value 기준으로 가맹점 선택
    - 값이 없으면 `FAMILY_PAYMENT_SHOP_NAME`의 기본 가맹점 `세틀_패밀리박스` 선택
 4. 각 가맹점마다 `FAMILY_PAYMENT_AMOUNTS`의 금액 목록을 별도 테스트로 등록하고 `pay_amt`를 시나리오 금액으로 설정
-5. `암호화` 버튼 클릭
+5. `pay_amt` 자동 암호화를 트리거하고 완료됐는지 확인
 6. `PC전용 Submit` 버튼 클릭
 7. 패밀리 약관 화면에서 `전체 약관 동의 후 본인인증하기` 클릭
 8. 가상 인증 팝업에서 필요 시 테스트 이름을 입력한 뒤 `전송` 버튼 클릭
@@ -158,7 +163,8 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 
 구현 시 셀렉터는 사용자에게 보이는 의미를 우선한다.
 
-- 버튼은 `getByRole('button', { name: /암호화|PC전용 Submit|포인트조회하기|전송|결제|전환하기|확인/ })` 형태를 우선 사용한다.
+- 버튼은 `getByRole('button', { name: /PC전용 Submit|포인트조회하기|전송|결제|전환하기|확인/ })` 형태를 우선 사용한다.
+- `pay_amt` 암호화는 수동 암호화 버튼이 있으면 `onclick*="encryptPayAmt"` 후보를 사용하고, 없으면 `#payAmt` focus/blur로 자동 암호화를 트리거한 뒤 `window.payAmtEncrypted`를 확인한다.
 - PG사 선택은 `ul.tabs li`의 노출 텍스트를 우선 사용하고, 선택 후 `#pg_cd` 값으로 PG 코드가 갱신됐는지 확인한다.
 - 가맹점 선택이 필요한 시나리오는 `#shop_sel` 옵션 텍스트로 선택하고 `#shopName` 값으로 반영 여부를 확인한다.
 - 패밀리포인트 가맹점 시나리오는 `#shop_sel` option value로 선택하고 실제 요청용 `shop_cd`가 `#shopCd`에 반영됐는지 확인한다.
@@ -175,40 +181,53 @@ v1의 핵심 E2E 시나리오는 다음 순서로 진행한다.
 
 ## Test Scenarios
 
-초기 구현 시 구체적인 시나리오가 많지 않더라도, 나중에 시나리오를 쉽게 추가할 수 있도록 테스트 흐름과 시나리오 데이터를 분리한다.
+테스트 흐름과 시나리오 데이터는 분리한다. 현재 spec들은 `tests/pg/scenarios.ts`가 아래 계약을 제공한다고 가정한다.
 
-권장 파일 구조는 다음과 같다.
+현재 파일 구조는 다음과 같다.
 
 ```text
 tests/
+  support/
+    env.ts
   pg/
+    smoke.spec.ts
     payment.spec.ts
+    family-payment.spec.ts
     api-terms.spec.ts
     api-point-payment.spec.ts
-    family-payment.spec.ts
+    point-inquiry.spec.ts
+    point-enhanced.spec.ts
+    point-extended.spec.ts
+    point-functions.spec.ts
+    point-method-access.spec.ts
     scenarios.ts
     pg-api-client.ts
     pg-page.ts
     card-point-payment-page.ts
+    settle-combined-payment-page.ts
     family-payment-page.ts
     page-actions.ts
+    point-conversion.ts
     assertions.ts
 ```
 
+- `smoke.spec.ts`: PG 테스트 페이지의 기본 입력란과 submit 버튼이 준비됐는지 확인한다.
 - `payment.spec.ts`: 시나리오 목록을 순회하며 실제 테스트를 실행한다.
 - `family-payment.spec.ts`: 패밀리포인트 할인권 요청 전용 흐름을 실행한다.
 - `api-terms.spec.ts`: Playwright `request` fixture로 약관 조회/동의 API 흐름을 실행한다.
 - `api-point-payment.spec.ts`: 약관 API 성공 후 포인트 조회/사용/취소 API 흐름을 실행한다.
-- `scenarios.ts`: 금액, PG 설정, 결제수단, 기대 성공 패턴 같은 시나리오 데이터를 정의한다.
+- `point-inquiry.spec.ts`, `point-enhanced.spec.ts`, `point-extended.spec.ts`, `point-functions.spec.ts`, `point-method-access.spec.ts`: 현재 정리 전 테스트다. Playwright 기본 검색 대상에 포함되므로 전체 실행 전에 `PgApiClient` 공개 API와 실제 시나리오 계약에 맞게 먼저 정리한다.
+- `scenarios.ts`: 금액, PG 설정, 결제수단, 기대 성공 패턴 같은 시나리오 데이터를 정의해야 한다. 현재 파일은 이 계약을 충족하지 않아 복구가 필요하다.
 - `pg-api-client.ts`: PG API 직접 호출, 거래번호 생성, 포인트 사용 요청 계산, 공통 오류 메시지 처리를 제공한다.
 - `pg-page.ts`: 페이지 접속, PG/가맹점 선택, 암호화, `PC전용 Submit`까지의 공통 시작 흐름을 제공한다.
 - `card-point-payment-page.ts`: `PC전용 Submit` 이후 일반 카드포인트 결제 팝업 흐름을 제공한다.
 - `settle-combined-payment-page.ts`: `세틀_복합결제(소진형)`의 약관 전체동의, 본인인증, 복합결제 포인트 입력 흐름을 제공한다.
 - `family-payment-page.ts`: `PC전용 Submit` 이후 패밀리포인트 사용, 결과 확인, 일괄요청 흐름을 제공한다.
 - `page-actions.ts`: 버튼 탐색, 팝업 전환, 인증 팝업 처리 같은 저수준 화면 조작 유틸을 제공한다.
+- `point-conversion.ts`: 현대카드 M포인트처럼 사용포인트와 전환포인트 비율이 다른 케이스를 환산한다.
 - `assertions.ts`: 성공 문구, alert, 팝업, 네트워크 응답 등 성공/실패 판정 로직을 제공한다.
 
-시나리오는 데이터로 추가한다.
+정상 동작 기준으로 `scenarios.ts`는 화면 결제 시나리오를 데이터로 제공해야 한다.
 
 ```ts
 export const paymentScenarios = [
@@ -217,7 +236,7 @@ export const paymentScenarios = [
     paymentAmount: 5000,
     convertedPointAmount: 5000,
     pgProvider: { name: '세틀뱅크', code: 'PG0001' },
-    shopName: '소진형테스트가맹점',
+    shopName: '굿툰',
     paymentFlow: 'standard-card-point',
     expectedSuccessPattern: /포인트허브 결제 성공/,
   },
@@ -238,6 +257,28 @@ export const familyPaymentScenarios = [
     expectedSuccessPattern: /할인권 요청 메시지가 발송 되었습니다/,
   },
 ];
+```
+
+API 직접 호출 spec은 별도의 약관 시나리오와 포인트 결제 시나리오를 기대한다.
+
+```ts
+export const apiTermsScenario = {
+  name: `${env.pgApiPgCd} ${env.pgApiShopPayMethod} 약관 목록 조회 및 동의`,
+  requiredTerms: [
+    { clsId: 'PHA1A', mandatory: 'Y' },
+    { clsId: 'PHA5A', mandatory: 'Y' },
+    { clsId: 'a1A', mandatory: 'Y' },
+    { clsId: 'a2A', mandatory: 'Y' },
+    { clsId: 'a3A', mandatory: 'Y' },
+  ],
+};
+
+export const apiPointPaymentScenario = {
+  name: `약관 동의 후 포인트 API ${env.pgApiShopPayMethod} ${env.pgApiPointTargetAmount} 사용 및 취소`,
+  terms: apiTermsScenario,
+  targetPointAmount: env.pgApiPointTargetAmount,
+  shopCmsnRate: env.pgApiShopCmsnRate,
+};
 ```
 
 나중에 금액이나 설정만 다른 일반 결제 시나리오는 `CARD_POINT_AMOUNTS`에 쉼표로 구분한 금액 목록을 지정하거나 `scenarios.ts`에 PG사별 가맹점 항목을 추가한다. `CARD_POINT_AMOUNTS`를 지정하면 각 PG사, 각 가맹점, 각 금액이 곱해져 `paymentScenarios` 항목이 만들어지고 테스트가 별도로 등록된다. 기존 단일 금액 설정인 `CARD_POINT_AMOUNT`만 있으면 그 값을 단일 금액 목록으로 해석해 호환성을 유지한다. 패밀리포인트에서 `FAMILY_PAYMENT_SHOP_CODES`를 지정하면 각 값과 `FAMILY_PAYMENT_AMOUNTS`의 각 금액이 곱해져 `familyPaymentScenarios` 항목이 만들어지고 테스트가 별도로 등록된다.
@@ -288,21 +329,28 @@ for (const scenario of paymentScenarios) {
 ### Page Load Smoke
 
 - PG 테스트 페이지가 열리는지 확인한다.
-- `암호화` 버튼과 `테스트서브밋` 버튼이 존재하는지 확인한다.
+- `pay_amt` 입력란과 `테스트서브밋` 버튼이 존재하는지 확인한다.
 - 기본 PG, 상점, 결제수단 값은 화면 기본값을 그대로 사용한다.
 
 ### Payment Success E2E
 
-- 결제 시나리오의 PG사 탭과 필요 시 가맹점을 선택한 뒤 `암호화`를 실행한다.
-- 결제 시나리오 금액이 기본값과 다르면 암호화 전에 `pay_amt`를 시나리오 금액으로 설정한다.
+- 결제 시나리오의 PG사 탭과 필요 시 가맹점을 선택한 뒤 `pay_amt` 자동 암호화를 트리거하고 완료 여부를 확인한다.
+- 결제 시나리오 금액이 기본값과 다르면 자동 암호화 전에 `pay_amt`를 시나리오 금액으로 설정한다.
 - `PC전용 Submit`으로 결제 또는 약관 흐름을 시작한다.
 - `/pg/identification.do` 화면에서 전체 약관 동의 후 포인트 조회를 실행한다.
-- `세틀_복합결제(소진형)`은 `암호화` 후 `pay_limit_rate=100`을 입력하고, 약관 화면에서 `#agreeAll` 선택 후 `#send` 확인으로 본인인증을 시작한다.
+- `세틀_복합결제(소진형)`은 `pay_amt` 자동 암호화 후 `pay_limit_rate=100`을 입력하고, 약관 화면에서 `#agreeAll` 선택 후 `#send` 확인으로 본인인증을 시작한다.
 - 가상 인증 팝업에서 `전송`만 클릭해 인증 완료 상태로 진행한다.
 - 카드사별 목록에서 전환포인트가 시나리오 금액이 되도록 `사용포인트` 입력란을 채운다.
 - 현대카드는 전환비율이 `1.5:1`이므로 전환포인트 `5000P`를 맞추려면 사용포인트 `7500M`을 입력한다.
 - 결제 후 최종 확인을 클릭한다.
 - alert 창의 `포인트허브 결제 성공` 문구가 확인되면 통과로 본다.
+
+### Payment Unencrypted Amount Error
+
+- `pay_amt`가 평문 금액인 상태로 `PC전용 Submit`을 강제 실행하면 오류 페이지가 표시되는지 확인한다.
+- 현재 로컬 화면은 `pay_amt` 입력란 포커스가 빠질 때 자동 암호화되므로, 테스트에서는 DOM 값을 직접 평문 금액으로 되돌리고 자동 암호화 완료 플래그를 강제로 켜서 blur 재암호화를 우회한다.
+- 기본 검증 시나리오는 `세틀뱅크`의 `굿툰` 가맹점과 금액 `5000`을 사용한다.
+- `PC전용 Submit` 이후 열린 페이지의 본문에 `포인트다모아 서비스 이용에 불편을 드려 죄송합니다.` 또는 `잠시 후 다시 이용하여 주시기 바랍니다.` 문구가 있으면 통과로 본다.
 
 ### Payment Amount Matrix
 
@@ -310,11 +358,11 @@ for (const scenario of paymentScenarios) {
 - 각 PG사는 `scenarios.ts`에 정의한 가맹점 목록과 금액 목록을 곱해 별도 테스트로 등록한다.
 - `CARD_POINT_AMOUNTS` 값은 사용포인트 입력값이 아니라 결제금액이자 전환포인트 목표값으로 해석한다.
 - 기존 로컬 `.env`에 `CARD_POINT_AMOUNT`만 있으면 그 값을 단일 금액 목록으로 사용한다.
-- 각 금액 시나리오는 암호화 전에 `pay_amt`를 해당 금액으로 설정하고, 카드포인트 사용 화면에서는 같은 전환포인트 목표값을 입력한다.
+- 각 금액 시나리오는 자동 암호화 전에 `pay_amt`를 해당 금액으로 설정하고, 카드포인트 사용 화면에서는 같은 전환포인트 목표값을 입력한다.
 
 ### Family Payment Success E2E
 
-- `패밀리` PG사 탭과 `세틀_패밀리박스` 가맹점을 선택한 뒤 `암호화`를 실행한다.
+- `패밀리` PG사 탭과 `세틀_패밀리박스` 가맹점을 선택한 뒤 `pay_amt` 자동 암호화를 트리거하고 완료 여부를 확인한다.
 - `PC전용 Submit`으로 패밀리 약관 흐름을 시작한다.
 - 약관 동의 후 본인인증 팝업을 통과한다.
 - 패밀리포인트 사용 화면에서 각 카드사 행의 `초기화` 버튼을 눌러 사용포인트를 0으로 만든다.
@@ -358,7 +406,7 @@ for (const scenario of paymentScenarios) {
 ## Assumptions
 
 - 로컬 서비스는 기본적으로 테스트 실행 전에 사용자가 직접 실행한다.
-- 구현 시 `~/docker/middleware-stack`에서 서비스 기동 방법을 파악할 수 있으면 로컬 서비스 기동용 보조 스크립트를 추가할 수 있다.
+- 로컬 서비스 보조 기동은 `service:*` npm script가 `~/docker/middleware-stack`의 `pointhub` 서비스를 대상으로 제공한다.
 - 테스트 URL은 기본적으로 `http://localhost/pg/pgfront.do`다.
 - `PC전용 Submit` 이후 화면은 새 팝업으로 열린다.
 - 전화번호 인증은 기본적으로 가상 인증 팝업의 `전송` 버튼 클릭만으로 통과된다.
@@ -381,7 +429,7 @@ for (const scenario of paymentScenarios) {
 - 카드포인트 전환포인트 목표값 목록은 기본 `5000`이다.
 - API 직접 호출 기본값은 `PG_API_BASE_URL=http://localhost`, `PG_API_PG_CD=PG0006`, `PG_API_SHOP_CD=API_ph_CU`, `PG_API_SHOP_PAY_METHOD=CU`, `PG_API_POINT_TARGET_AMOUNT=4000`, `PG_API_SHOP_CMSN_RATE=0`이다.
 - API 포인트 결제는 포인트 조회 응답에서 목표 전환금액을 사용할 수 있는 카드사를 자동 선택한다.
-- 성공 판정은 alert 창의 `포인트허브 결제 성공` 문구를 기준으로 한다.
+- 일반 카드포인트 결제 성공 판정은 alert 창의 `포인트허브 결제 성공` 문구를 기준으로 한다.
 - API 약관 동의 성공 판정은 API 응답 `ret_code=00`과 거래번호 일치 여부를 기준으로 한다.
 - API 포인트 조회/사용/취소 성공 판정은 API 응답 `ret_code=00`, 거래번호 일치 여부, 금액 합계를 기준으로 한다.
 - 실패해도 테스트 데이터 정리는 필요 없다.

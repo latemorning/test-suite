@@ -2,7 +2,6 @@ import { expect, type Page } from '@playwright/test';
 import { env } from '../support/env';
 import {
   clickAndMaybeGetPopup,
-  clickButton,
   exactTextPattern,
   findButton,
 } from './page-actions';
@@ -33,14 +32,40 @@ export class PgPage {
     }
 
     await expect(this.page.getByText(/PG사 정보|pg_cd|pay_amt/).first()).toBeVisible();
-    await expect(this.page.getByRole('button', { name: /암호화/ }).first()).toBeVisible();
+    await expect(this.page.locator('#payAmt')).toBeVisible();
   }
 
   /**
-   * 테스트 페이지가 결제 요청 데이터를 만들도록 암호화 버튼을 클릭한다.
+   * 테스트 페이지가 결제 요청 데이터를 만들도록 pay_amt focusout 자동 암호화를 트리거한다.
    */
   async encrypt(): Promise<void> {
-    await clickButton(this.page, /암호화/);
+    const payAmountInput = this.page.locator('#payAmt');
+    await expect(payAmountInput).toBeVisible();
+
+    const beforeValue = await payAmountInput.inputValue();
+
+    await payAmountInput.focus();
+    await payAmountInput.evaluate((element) => {
+      const input = element as HTMLInputElement;
+
+      // 현재 로컬 PG 화면은 별도 암호화 버튼 없이 focusout 이벤트에서 결제금액을 암호화한다.
+      input.dispatchEvent(new Event('focusout', { bubbles: true }));
+      input.blur();
+    });
+
+    await expect
+      .poll(
+        async () => {
+          const payAmtEncrypted = await this.page.evaluate(() =>
+            Boolean((window as unknown as { payAmtEncrypted?: boolean }).payAmtEncrypted),
+          );
+          const currentValue = await payAmountInput.inputValue();
+
+          return payAmtEncrypted || (beforeValue !== '' && currentValue !== beforeValue);
+        },
+        { message: 'Expected pay_amt to be encrypted automatically after focusout.' },
+      )
+      .toBe(true);
   }
 
   /**
@@ -128,7 +153,7 @@ export class PgPage {
    * smoke 테스트에서 결제 플로우 진입 버튼들이 준비됐는지 확인한다.
    */
   async expectPaymentEntryControls(): Promise<void> {
-    await findButton(this.page, /암호화/);
+    await expect(this.page.locator('#payAmt')).toBeVisible();
     await findButton(this.page, /PC전용\s*Submit|테스트\s*서브밋|테스트서브밋/);
   }
 }

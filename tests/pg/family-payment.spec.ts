@@ -34,7 +34,7 @@ test.describe('PG local family payment flow', { tag: ['@family-payment', '@e2e']
         await pg.setPaymentAmount(scenario.paymentAmount);
       });
 
-      await test.step('암호화 버튼 클릭', async () => {
+      await test.step('결제금액 자동 암호화 확인', async () => {
         await pg.encrypt();
       });
 
